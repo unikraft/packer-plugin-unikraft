@@ -1,5 +1,4 @@
-//go:generate packer-sdc mapstructure-to-hcl2 -type Config,DatasourceOutput
-package scaffolding
+package kraft
 
 import (
 	"github.com/hashicorp/hcl/v2/hcldec"

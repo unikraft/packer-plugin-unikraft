@@ -1,4 +1,4 @@
-package scaffolding
+package kraft
 
 // packersdk.Artifact implementation
 type Artifact struct {

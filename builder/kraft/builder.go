@@ -1,6 +1,6 @@
 //go:generate packer-sdc mapstructure-to-hcl2 -type Config
 
-package scaffolding
+package kraft
 
 import (
 	"context"
@@ -33,12 +33,14 @@ func (b *Builder) Prepare(raws ...interface{}) (generatedVars []string, warnings
 		Interpolate: true,
 	}, raws...)
 	if err != nil {
-		return nil, nil, err
+		return nil, warnings, err
 	}
 	// Return the placeholder for the generated data that will become available to provisioners and post-processors.
 	// If the builder doesn't generate any data, just return an empty slice of string: []string{}
-	buildGeneratedData := []string{"GeneratedMockData"}
-	return buildGeneratedData, nil, nil
+	buildGeneratedData := []string{
+		"GeneratedMockData",
+	}
+	return buildGeneratedData, warnings, nil
 }
 
 func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (packer.Artifact, error) {
@@ -62,6 +64,8 @@ func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (pack
 		"GeneratedMockData": "mock-build-data",
 	})
 
+	// generatedData := &packerbuilderdata.GeneratedData{State: state}
+
 	// Run!
 	b.runner = commonsteps.NewRunner(steps, b.config.PackerConfig, ui)
 	b.runner.Run(ctx, state)
@@ -70,6 +74,8 @@ func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (pack
 	if err, ok := state.GetOk("error"); ok {
 		return nil, err.(error)
 	}
+
+	// TODO: Add other error checks here
 
 	artifact := &Artifact{
 		// Add the builder generated data to the artifact StateData so that post-processors

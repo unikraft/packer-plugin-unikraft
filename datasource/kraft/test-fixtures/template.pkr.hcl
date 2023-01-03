@@ -1,10 +1,10 @@
-data "scaffolding-my-datasource" "test" {
+data "kraft-datasource" "test" {
   mock = "mock-config"
 }
 
 locals {
-  foo = data.scaffolding-my-datasource.test.foo
-  bar = data.scaffolding-my-datasource.test.bar
+  foo = data.kraft-datasource.test.foo
+  bar = data.kraft-datasource.test.bar
 }
 
 source "null" "basic-example" {

@@ -1,4 +1,4 @@
-package scaffolding
+package kraft
 
 import (
 	_ "embed"
@@ -13,20 +13,20 @@ import (
 )
 
 //go:embed test-fixtures/template.pkr.hcl
-var testBuilderHCL2Basic string
+var testProvisionerHCL2Basic string
 
-// Run with: PACKER_ACC=1 go test -count 1 -v ./builder/scaffolding/builder_acc_test.go  -timeout=120m
-func TestAccScaffoldingBuilder(t *testing.T) {
+// Run with: PACKER_ACC=1 go test -count 1 -v ./provisioner/scaffolding/provisioner_acc_test.go  -timeout=120m
+func TestAccScaffoldingProvisioner(t *testing.T) {
 	testCase := &acctest.PluginTestCase{
-		Name: "scaffolding_builder_basic_test",
+		Name: "scaffolding_provisioner_basic_test",
 		Setup: func() error {
 			return nil
 		},
 		Teardown: func() error {
 			return nil
 		},
-		Template: testBuilderHCL2Basic,
-		Type:     "scaffolding-my-builder",
+		Template: testProvisionerHCL2Basic,
+		Type:     "scaffolding-my-provisioner",
 		Check: func(buildCommand *exec.Cmd, logfile string) error {
 			if buildCommand.ProcessState != nil {
 				if buildCommand.ProcessState.ExitCode() != 0 {
@@ -46,8 +46,8 @@ func TestAccScaffoldingBuilder(t *testing.T) {
 			}
 			logsString := string(logsBytes)
 
-			buildGeneratedDataLog := "scaffolding-my-builder.basic-example: build generated data: mock-build-data"
-			if matched, _ := regexp.MatchString(buildGeneratedDataLog+".*", logsString); !matched {
+			provisionerOutputLog := "null.basic-example: provisioner mock: my-mock-config"
+			if matched, _ := regexp.MatchString(provisionerOutputLog+".*", logsString); !matched {
 				t.Fatalf("logs doesn't contain expected foo value %q", logsString)
 			}
 			return nil

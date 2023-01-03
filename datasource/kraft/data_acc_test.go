@@ -1,4 +1,4 @@
-package scaffolding
+package kraft
 
 import (
 	_ "embed"

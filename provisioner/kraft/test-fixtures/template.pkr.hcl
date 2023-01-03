@@ -7,7 +7,7 @@ build {
     "source.null.basic-example"
   ]
 
-  provisioner "scaffolding-my-provisioner" {
+  provisioner "kraft-provisioner" {
     mock = "my-mock-config"
   }
 }
