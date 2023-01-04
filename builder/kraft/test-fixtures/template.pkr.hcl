@@ -1,15 +1,11 @@
-source "kraft-builder" "basic-example" {
-  mock = "mock-config"
+source "kraft-builder" "example" {
+  architecture = "x86_64"
+  platform = "kvm"
+  build_path = "/tmp/.unikraft/apps/helloworld"
+  workdir = "/tmp/"
+  pull_source = "helloworld"
 }
 
 build {
-  sources = [
-    "source.kraft-builder.basic-example"
-  ]
-
-  provisioner "shell-local" {
-    inline = [
-      "echo build generated data: ${build.GeneratedMockData}",
-    ]
-  }
+  sources = [ "source.kraft-builder.example" ]
 }
