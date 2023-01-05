@@ -36,7 +36,12 @@ func (b *Builder) Prepare(raws ...interface{}) (generatedVars []string, warnings
 }
 
 func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (packer.Artifact, error) {
-	driver := &KraftDriver{Ctx: &b.config.ctx, Ui: ui}
+	driver := &KraftDriver{
+		Ctx:            &b.config.ctx,
+		Ui:             ui,
+		CommandContext: KraftCommandContext(),
+	}
+
 	steps := []multistep.Step{
 		&StepPkgSource{},
 		&StepPkgUpdate{},
