@@ -67,6 +67,7 @@ func (s *StepBuild) Run(_ context.Context, state multistep.StateBag) multistep.S
 		}
 	}
 
+	s.resultingBinariesPath = executableFiles
 	state.Put("binaries", s.resultingBinariesPath)
 
 	return multistep.ActionContinue
