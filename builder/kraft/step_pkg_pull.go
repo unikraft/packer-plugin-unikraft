@@ -11,7 +11,7 @@ import (
 type StepPkgPull struct {
 }
 
-// Run should execute the purpose of this step
+// Run calls `kraft pkg pull` with the given repository to pull it locally.
 func (s *StepPkgPull) Run(_ context.Context, state multistep.StateBag) multistep.StepAction {
 	ui := state.Get("ui").(packersdk.Ui)
 	config, ok := state.Get("config").(*Config)
@@ -39,8 +39,9 @@ func (s *StepPkgPull) Run(_ context.Context, state multistep.StateBag) multistep
 	return multistep.ActionContinue
 }
 
-// Cleanup can be used to clean up any artifact created by the step.
-// A step's clean up always run at the end of a build, regardless of whether provisioning succeeds or fails.
+// Cleanup reverts the changes from the pull step.
+// In this case, it should remove all downloaded files, apart from the resulting images from the build step.
 func (s *StepPkgPull) Cleanup(_ multistep.StateBag) {
-	// Nothing to clean
+	// TODO delete everything pulled
+	// Bonus: delete the cached source
 }

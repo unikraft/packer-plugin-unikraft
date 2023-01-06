@@ -11,7 +11,8 @@ import (
 type StepPkgUpdate struct {
 }
 
-// Run should execute the purpose of this step
+// Run executes the step of updating the sources for a package by calling the `kraft pkg update` command.
+// This step will not do anything if no source is specified.
 func (s *StepPkgUpdate) Run(_ context.Context, state multistep.StateBag) multistep.StepAction {
 	ui := state.Get("ui").(packersdk.Ui)
 	_, ok := state.Get("config").(*Config)
@@ -35,8 +36,8 @@ func (s *StepPkgUpdate) Run(_ context.Context, state multistep.StateBag) multist
 	return multistep.ActionContinue
 }
 
-// Cleanup can be used to clean up any artifact created by the step.
-// A step's clean up always run at the end of a build, regardless of whether provisioning succeeds or fails.
+// Cleanup should clean up any updated manifest resources.
 func (s *StepPkgUpdate) Cleanup(_ multistep.StateBag) {
-	// Nothing to clean
+	// TODO delete the default manifest folder.
+	// Ideally the folder would just be reverted.
 }

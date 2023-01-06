@@ -12,7 +12,7 @@ import (
 type StepSet struct {
 }
 
-// Run should execute the purpose of this step
+// Run calls `kraft set` to set specific symbols not found in the configuration file.
 func (s *StepSet) Run(_ context.Context, state multistep.StateBag) multistep.StepAction {
 	ui := state.Get("ui").(packersdk.Ui)
 	config, ok := state.Get("config").(*Config)
@@ -52,8 +52,8 @@ func (s *StepSet) Run(_ context.Context, state multistep.StateBag) multistep.Ste
 	return multistep.ActionContinue
 }
 
-// Cleanup can be used to clean up any artifact created by the step.
-// A step's clean up always run at the end of a build, regardless of whether provisioning succeeds or fails.
+// Cleanup unsets the symbols set in the Run step.
+// Setting and unsetting symbols might create unexpected results.
 func (s *StepSet) Cleanup(_ multistep.StateBag) {
-	// Nothing to clean
+	// Todo call `kraft unset`
 }

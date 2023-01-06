@@ -35,8 +35,8 @@ func (s *StepBuild) Run(_ context.Context, state multistep.StateBag) multistep.S
 	return multistep.ActionContinue
 }
 
-// Cleanup can be used to clean up any artifact created by the step.
-// A step's clean up always run at the end of a build, regardless of whether provisioning succeeds or fails.
+// Cleanup reverts the changes from the build step.
+// In this case, it should remove all build objects, apart from the resulting images.
 func (s *StepBuild) Cleanup(_ multistep.StateBag) {
-	// Nothing to clean
+	// TODO move the resulting binary and call `kraft properclean`
 }

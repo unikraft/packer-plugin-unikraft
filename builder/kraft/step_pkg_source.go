@@ -11,7 +11,8 @@ import (
 type StepPkgSource struct {
 }
 
-// Run should execute the purpose of this step
+// Run executes the step of sourcing a package by calling the `kraft pkg source` command.
+// This step is skipped if no source is specified.
 func (s *StepPkgSource) Run(_ context.Context, state multistep.StateBag) multistep.StepAction {
 	ui := state.Get("ui").(packersdk.Ui)
 	config, ok := state.Get("config").(*Config)
@@ -39,8 +40,7 @@ func (s *StepPkgSource) Run(_ context.Context, state multistep.StateBag) multist
 	return multistep.ActionContinue
 }
 
-// Cleanup can be used to clean up any artifact created by the step.
-// A step's clean up always run at the end of a build, regardless of whether provisioning succeeds or fails.
+// Cleanup is called after the step is finished and calls `kraft pkg unsource` to remove the source.
 func (s *StepPkgSource) Cleanup(_ multistep.StateBag) {
-	// Nothing to clean
+	// TODO implement
 }
