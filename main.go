@@ -6,7 +6,6 @@ import (
 	"packer-plugin-kraft/builder/kraft"
 	kraftData "packer-plugin-kraft/datasource/kraft"
 	kraftPP "packer-plugin-kraft/post-processor/kraft"
-	kraftProv "packer-plugin-kraft/provisioner/kraft"
 	kraftVersion "packer-plugin-kraft/version"
 
 	"github.com/hashicorp/packer-plugin-sdk/plugin"
@@ -15,7 +14,7 @@ import (
 func main() {
 	pps := plugin.NewSet()
 	pps.RegisterBuilder("builder", new(kraft.Builder))
-	pps.RegisterProvisioner("provisioner", new(kraftProv.Provisioner))
+	// pps.RegisterProvisioner("provisioner", new(kraftProv.Provisioner))
 	pps.RegisterPostProcessor("post-processor", new(kraftPP.PostProcessor))
 	pps.RegisterDatasource("datasource", new(kraftData.Datasource))
 	pps.SetVersion(kraftVersion.PluginVersion)
