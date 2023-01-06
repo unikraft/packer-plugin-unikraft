@@ -6,11 +6,17 @@ package kraft
 type Driver interface {
 	Build(path, architecture, platform string) error
 
+	ProperClean(path string) error
+
 	Pull(source, workdir string) error
 
 	Source(source string) error
 
+	Unsource(source string) error
+
 	Update() error
 
 	Set(options map[string]string) error
+
+	Unset(options []string) error
 }
