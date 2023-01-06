@@ -31,7 +31,9 @@ func (b *Builder) Prepare(raws ...interface{}) (generatedVars []string, warnings
 	}
 	// Return the placeholder for the generated data that will become available to provisioners and post-processors.
 	// If the builder doesn't generate any data, just return an empty slice of string: []string{}
-	buildGeneratedData := []string{}
+	buildGeneratedData := []string{
+		"binaries",
+	}
 	return buildGeneratedData, warnings, nil
 }
 
@@ -71,12 +73,10 @@ func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (pack
 		return nil, err.(error)
 	}
 
-	// TODO: Add other error checks here
-
 	artifact := &Artifact{
-		// Add the builder generated data to the artifact StateData so that post-processors
-		// can access them.
-		// StateData: map[string]interface{}{"generated_data": state.Get("generated_data")},
+		StateData: map[string]interface{}{
+			"binaries": state.Get("binaries"),
+		},
 	}
 	return artifact, nil
 }
