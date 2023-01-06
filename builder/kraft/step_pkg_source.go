@@ -41,6 +41,27 @@ func (s *StepPkgSource) Run(_ context.Context, state multistep.StateBag) multist
 }
 
 // Cleanup is called after the step is finished and calls `kraft pkg unsource` to remove the source.
-func (s *StepPkgSource) Cleanup(_ multistep.StateBag) {
-	// TODO implement
+func (s *StepPkgSource) Cleanup(state multistep.StateBag) {
+	ui := state.Get("ui").(packersdk.Ui)
+	config, ok := state.Get("config").(*Config)
+	if !ok {
+		err := fmt.Errorf("error encountered obtaining kraft config")
+		state.Put("error", err)
+		ui.Error(err.Error())
+		return
+	}
+
+	if config.SourceSource == "" {
+		return
+	}
+
+	driver := state.Get("driver").(Driver)
+
+	err := driver.Unsource(config.SourceSource)
+	if err != nil {
+		err := fmt.Errorf("error encountered unsourcing kraft package: %s", err)
+		state.Put("error", err)
+		ui.Error(err.Error())
+		return
+	}
 }

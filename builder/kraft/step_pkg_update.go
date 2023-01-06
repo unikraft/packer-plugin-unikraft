@@ -38,6 +38,7 @@ func (s *StepPkgUpdate) Run(_ context.Context, state multistep.StateBag) multist
 
 // Cleanup should clean up any updated manifest resources.
 func (s *StepPkgUpdate) Cleanup(_ multistep.StateBag) {
-	// TODO delete the default manifest folder.
-	// Ideally the folder would just be reverted.
+	// Delete the default manifest folder.
+	// The path to the config file can be custom, thus also the manifest folder.
+	// For now this can stay empty.
 }

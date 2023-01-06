@@ -3,12 +3,16 @@ package kraft
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/hashicorp/packer-plugin-sdk/multistep"
 	packersdk "github.com/hashicorp/packer-plugin-sdk/packer"
 )
 
 type StepBuild struct {
+	resultingBinariesPath []string
 }
 
 // Run should execute the purpose of this step
@@ -32,11 +36,68 @@ func (s *StepBuild) Run(_ context.Context, state multistep.StateBag) multistep.S
 		return multistep.ActionHalt
 	}
 
+	// Copy all executable files in the `path/build` folder and move them to `path/dist`
+	// Open the folder for reading
+	var executableFiles []string = []string{}
+	filepath.Walk(config.Path+"/build", func(path string, info os.FileInfo, err error) error {
+		if !info.IsDir() && info.Mode()&0111 != 0 && info.Mode()&os.ModeSymlink == 0 {
+			// Check if the file is in the root of the build folder
+			if !strings.Contains(strings.TrimPrefix(path, config.Path+"/build/"), "/") {
+				executableFiles = append(executableFiles, path)
+			}
+		}
+
+		return nil
+	})
+
+	// Create the dist folder if it doesn't exist
+	if _, err := os.Stat(config.Path + "/dist"); os.IsNotExist(err) {
+		os.Mkdir(config.Path+"/dist", 0755)
+	}
+
+	// Move the files to the dist folder
+	for _, file := range executableFiles {
+		err := os.Rename(file, config.Path+"/dist/"+filepath.Base(file))
+		if err != nil {
+			err := fmt.Errorf("error encountered saving kraft package: %s", err)
+			state.Put("error", err)
+			ui.Error(err.Error())
+			return multistep.ActionHalt
+		}
+	}
+
+	state.Put("binary", s.resultingBinariesPath)
+
 	return multistep.ActionContinue
 }
 
 // Cleanup reverts the changes from the build step.
 // In this case, it should remove all build objects, apart from the resulting images.
-func (s *StepBuild) Cleanup(_ multistep.StateBag) {
-	// TODO move the resulting binary and call `kraft properclean`
+func (s *StepBuild) Cleanup(state multistep.StateBag) {
+	ui := state.Get("ui").(packersdk.Ui)
+	config, ok := state.Get("config").(*Config)
+	if !ok {
+		err := fmt.Errorf("error encountered obtaining kraft config")
+		state.Put("error", err)
+		ui.Error(err.Error())
+		return
+	}
+
+	driver := state.Get("driver").(Driver)
+
+	err := driver.ProperClean(config.Path)
+	if err != nil {
+		err := fmt.Errorf("error encountered cleaning kraft package: %s", err)
+		state.Put("error", err)
+		ui.Error(err.Error())
+		return
+	}
+
+	// Rename the dist folder to build
+	err = os.Rename(config.Path+"/dist", config.Path+"/build")
+	if err != nil {
+		err := fmt.Errorf("error encountered cleaning kraft package: %s", err)
+		state.Put("error", err)
+		ui.Error(err.Error())
+	}
 }
