@@ -1,5 +1,7 @@
 package kraft
 
+import "fmt"
+
 // packersdk.Artifact implementation
 type Artifact struct {
 	// StateData should store data such as GeneratedData
@@ -12,7 +14,7 @@ func (*Artifact) BuilderId() string {
 }
 
 func (a *Artifact) Files() []string {
-	return []string{}
+	return append([]string{}, a.StateData["binaries"].([]string)...)
 }
 
 func (*Artifact) Id() string {
@@ -20,7 +22,13 @@ func (*Artifact) Id() string {
 }
 
 func (a *Artifact) String() string {
-	return ""
+	s := ""
+
+	for k, v := range a.StateData {
+		s += fmt.Sprintf("%s=%v ", k, v)
+	}
+
+	return s
 }
 
 func (a *Artifact) State(name string) interface{} {
@@ -28,5 +36,6 @@ func (a *Artifact) State(name string) interface{} {
 }
 
 func (a *Artifact) Destroy() error {
+	a.StateData = nil
 	return nil
 }
