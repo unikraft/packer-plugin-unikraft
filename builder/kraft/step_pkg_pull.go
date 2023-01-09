@@ -70,7 +70,7 @@ func (s *StepPkgPull) Cleanup(state multistep.StateBag) {
 
 	for _, file := range files {
 		// If the file is a directory, and it is not the build directory, delete it.
-		if !file.IsDir() || (file.IsDir() && file.Name() != "build") {
+		if !file.IsDir() || (file.IsDir() && file.Name() != "build" && file.Name() != "fs0") {
 			err := os.RemoveAll(filepath.Join(buildDir, file.Name()))
 			if err != nil {
 				err := fmt.Errorf("error encountered removing directory: %s", err)
