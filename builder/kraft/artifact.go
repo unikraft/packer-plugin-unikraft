@@ -14,7 +14,9 @@ func (*Artifact) BuilderId() string {
 }
 
 func (a *Artifact) Files() []string {
-	return append([]string{}, a.StateData["binaries"].([]string)...)
+	files := append([]string{}, a.StateData["binaries"].([]string)...)
+	files = append(files, a.StateData["initramfs"].([]string)...)
+	return files
 }
 
 func (*Artifact) Id() string {
