@@ -12,7 +12,7 @@ import (
 	"github.com/hashicorp/packer-plugin-sdk/template/config"
 )
 
-const BuilderId = "kraft.builder"
+const BuilderId = "packer.builder.kraft"
 
 type Builder struct {
 	config Config
