@@ -33,10 +33,12 @@ const (
 type Kraft struct{}
 
 func (k *Kraft) Run(cmd *cobra.Command, args []string) error {
-	return cmd.Help()
+	return fmt.Errorf("kraft command should not be called")
 }
 
-func KraftCommandContext() *cobra.Command {
+// KraftCommandContext returns a context with the Kraft commands registered.
+// It needs to initialise the commands to ensure that internal context functions are called.
+func KraftCommandContext() context.Context {
 	command := cobra.Command{}
 	command.SetContext(context.Background())
 	cmd := cmdfactory.New(&Kraft{}, command)
@@ -55,7 +57,7 @@ func KraftCommandContext() *cobra.Command {
 	cmd.AddCommand(set.New())
 	cmd.AddCommand(stop.New())
 	cmd.AddCommand(unset.New())
-	return cmd
+	return cmd.Context()
 }
 
 func init() {
