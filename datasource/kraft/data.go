@@ -1,4 +1,4 @@
-package kraft
+package kraftdata
 
 import (
 	"github.com/hashicorp/hcl/v2/hcldec"
@@ -7,17 +7,8 @@ import (
 	"github.com/zclconf/go-cty/cty"
 )
 
-type Config struct {
-	MockOption string `mapstructure:"mock"`
-}
-
 type Datasource struct {
 	config Config
-}
-
-type DatasourceOutput struct {
-	Foo string `mapstructure:"foo"`
-	Bar string `mapstructure:"bar"`
 }
 
 func (d *Datasource) ConfigSpec() hcldec.ObjectSpec {
@@ -38,8 +29,7 @@ func (d *Datasource) OutputSpec() hcldec.ObjectSpec {
 
 func (d *Datasource) Execute() (cty.Value, error) {
 	output := DatasourceOutput{
-		Foo: "foo-value",
-		Bar: "bar-value",
+		// Format the generated data into the output structure
 	}
 	return hcl2helper.HCL2ValueFromConfig(output, d.OutputSpec()), nil
 }
