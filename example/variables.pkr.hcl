@@ -1,4 +1,4 @@
 locals {
-  foo = data.scaffolding-my-datasource.mock-data.foo
-  bar = data.scaffolding-my-datasource.mock-data.bar
+  // Data sources not supported yet in unikraft
+  // arch = data.unikraft-datasource.data.arch
 }

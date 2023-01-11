@@ -1,40 +1,40 @@
 packer {
   required_plugins {
-    scaffolding = {
+    unikraft = {
       version = ">=v0.1.0"
-      source  = "github.com/hashicorp/scaffolding"
+      source  = "github.com/unikraft-io/unikraft"
     }
   }
 }
 
-source "scaffolding-my-builder" "foo-example" {
-  mock = local.foo
+source "unikraft-builder" "example1" {
+  architecture = "x86_64"
+  platform = "kvm"
+  build_path = "/tmp/test1/.unikraft/apps/helloworld"
+  workdir = "/tmp/test1"
+  pull_source = "helloworld"
+  source_source = "https://github.com/unikraft/app-helloworld"
 }
 
-source "scaffolding-my-builder" "bar-example" {
-  mock = local.bar
-}
 
 build {
   sources = [
-    "source.scaffolding-my-builder.foo-example",
+    "source.unikraft-builder.example1",
   ]
 
-  source "source.scaffolding-my-builder.bar-example" {
-    name = "bar"
+  source "source.unikraft-builder.example2" {
+    architecture = "x86_64"
+    platform = "kvm"
+    build_path = "/tmp/test2/.unikraft/apps/nginx"
+    workdir = "/tmp/test2"
+    pull_source = "nginx"
+    source_source = "https://github.com/unikraft/app-nginx"
+
   }
 
-  provisioner "scaffolding-my-provisioner" {
-    only = ["scaffolding-my-builder.foo-example"]
-    mock = "foo: ${local.foo}"
-  }
-
-  provisioner "scaffolding-my-provisioner" {
-    only = ["scaffolding-my-builder.bar"]
-    mock = "bar: ${local.bar}"
-  }
-
-  post-processor "scaffolding-my-post-processor" {
-    mock = "post-processor mock-config"
+  post-processor "unikraft-post-processor" {
+    type   = "cpio"
+    source = "/tmp/test/.unikraft/apps/nginx/fs0"
+    destination = "/tmp/test/.unikraft/apps/nginx/build/initramfs.cpio"
   }
 }

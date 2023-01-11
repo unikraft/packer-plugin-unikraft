@@ -1,3 +1,4 @@
-data "scaffolding-my-datasource" "mock-data" {
-  mock = "mock-config"
+// Data sources not supported yet in unikraft
+data "unikraft-datasource" "data" {
+  // mock = "mock-config"
 }
