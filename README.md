@@ -1,38 +1,21 @@
-# Packer Plugin Scaffolding
+# Packer Plugin Unikraft
 
-This repository is a template for a Packer multi-component plugin. It is intended as a starting point for creating Packer plugins, containing:
-- A builder ([builder/scaffolding](builder/scaffolding))
-- A provisioner ([provisioner/scaffolding](provisioner/scaffolding))
-- A post-processor ([post-processor/scaffolding](post-processor/scaffolding))
-- A data source ([datasource/scaffolding](datasource/scaffolding))
-- Docs ([docs](docs))
+This repository is a unikraft implementation for a Packer multi-component plugin. The plugin contains the following components:
+- A builder ([builder/unikraft](builder/unikraft))
+- A post-processor ([post-processor/unikraft](post-processor/unikraft))
 - A working example ([example](example))
+- Docs ([docs](docs))
 
-These folders contain boilerplate code that you will need to edit to create your own Packer multi-component plugin.
-A full guide to creating Packer plugins can be found at [Extending Packer](https://www.packer.io/docs/plugins/creation).
+Currently stubbed components:
+- A data source ([datasource/unikraft](datasource/unikraft))
 
-In this repository you will also find a pre-defined GitHub Action configuration for the release workflow
-(`.goreleaser.yml` and `.github/workflows/release.yml`). The release workflow configuration makes sure the GitHub
-release artifacts are created with the correct binaries and naming conventions.
+Components not contained in the implementation:
+- A provisioner ([provisioner/unikraft](provisioner/unikraft))
 
-Please see the [GitHub template repository documentation](https://docs.github.com/en/free-pro-team@latest/github/creating-cloning-and-archiving-repositories/creating-a-repository-from-a-template)
-for how to create a new repository from this template on GitHub.
-
-## Packer plugin projects
-
-Here's a non exaustive list of Packer plugins that you can checkout:
-
-* [github.com/hashicorp/packer-plugin-docker](https://github.com/hashicorp/packer-plugin-docker)
-* [github.com/exoscale/packer-plugin-exoscale](https://github.com/exoscale/packer-plugin-exoscale)
-* [github.com/sylviamoss/packer-plugin-comment](https://github.com/sylviamoss/packer-plugin-comment)
-* [github.com/hashicorp/packer-plugin-hashicups](https://github.com/hashicorp/packer-plugin-hashicups)
-
-Looking at their code will give you good examples.
-
-## Running Acceptance Tests
+## Running Acceptance Tests - TODO
 
 Make sure to install the plugin with `go build .` and to have Packer installed locally.
-Then source the built binary to the plugin path with `cp packer-plugin-scaffolding ~/.packer.d/plugins/packer-plugin-scaffolding`
+Then source the built binary to the plugin path with `cp packer-plugin-unikraft ~/.packer.d/plugins/packer-plugin-unikraft`
 Once everything needed is set up, run:
 ```
 PACKER_ACC=1 go test -count 1 -v ./... -timeout=120m
@@ -40,7 +23,7 @@ PACKER_ACC=1 go test -count 1 -v ./... -timeout=120m
 
 This will run the acceptance tests for all plugins in this set.
 
-## Test Plugin Example Action
+## Test Plugin Example Action - TODO
 
 This scaffolding configures a [manually triggered plugin test action](/.github/workflows/test-plugin-example.yml).
 By default, the action will run Packer at the latest version to init, validate, and build the example configuration
@@ -49,7 +32,7 @@ within the [example](example) folder. This is useful to quickly test a basic tem
 The example must contain the `required_plugins` block and require your plugin at the latest or any other released version.
 This will help test and validate plugin releases.
 
-## Registering Documentation on Packer.io
+## Registering Documentation on Packer.io - TODO
 
 Documentation for a plugin is maintained within the `docs` directory and served on GitHub.
 To include plugin docs on Packer.io a global pre-hook has been added to the main scaffolding .goreleaser.yml file, that if uncommented will generate and include a docs.zip file as part of the plugin release.
@@ -61,9 +44,9 @@ This is done by adding the block below for the respective plugin to the file [we
 
 ```json
 {
-   "title": "Scaffolding",
-   "path": "scaffolding",
-   "repo": "hashicorp/packer-plugin-scaffolding",
+   "title": "Unikraft",
+   "path": "unikraft",
+   "repo": "unikraft-io/packer-plugin-unikraft",
    "version": "latest",
    "sourceBranch": "main"
  }
@@ -83,8 +66,8 @@ Once the first `docs.zip` file has been included into a release you will need to
 
 # Requirements
 
--	[packer-plugin-sdk](https://github.com/hashicorp/packer-plugin-sdk) >= v0.2.9
--	[Go](https://golang.org/doc/install) >= 1.17
+-	[packer-plugin-sdk](https://github.com/hashicorp/packer-plugin-sdk) >= v0.3.2
+-	[Go](https://golang.org/doc/install) >= 1.18
 
 ## Packer Compatibility
-This scaffolding template is compatible with Packer >= v1.7.0
+This plugin is compatible with Packer >= v1.7.0
