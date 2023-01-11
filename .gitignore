@@ -1,5 +1,5 @@
 main
-packer-plugin-kraft
+packer-plugin-unikraft
 **/packer_log*.txt
 **/git_*test.pkr.hcl
 crash.log

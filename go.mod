@@ -1,4 +1,4 @@
-module packer-plugin-kraft
+module packer-plugin-unikraft
 
 go 1.18
 

@@ -1,4 +1,4 @@
-NAME=kraft
+NAME=unikraft
 BINARY=packer-plugin-${NAME}
 
 COUNT?=1
