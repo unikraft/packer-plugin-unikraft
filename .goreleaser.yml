@@ -1,5 +1,3 @@
-# This is an example goreleaser.yaml file with some sane defaults.
-# Make sure to check the documentation at http://goreleaser.com
 env:
   - CGO_ENABLED=0
 before:
@@ -29,7 +27,7 @@ builds:
   -
     mod_timestamp: '{{ .CommitTimestamp }}'
     flags:
-      - -trimpath #removes all file system paths from the compiled executable
+      - -trimpath
     ldflags:
       - '-s -w -X {{ .ModulePath }}/version.Version={{.Version}} -X {{ .ModulePath }}/version.VersionPrerelease= '
     goos:
@@ -62,7 +60,10 @@ checksum:
   name_template: '{{ .ProjectName }}_v{{ .Version }}_SHA256SUMS'
   algorithm: sha256
 signs:
-  - artifacts: checksum
+  - id: cosign
+    cmd: cosign
+    stdin: "{{ .Env.COSIGN_PASSWORD }}"
+    artifacts: checksum
     args:
       # if you are using this is in a GitHub action or some other automated pipeline, you
       # need to pass the batch flag to indicate its not interactive.

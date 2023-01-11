@@ -29,6 +29,8 @@ jobs:
         with:
           working_directory: ${{ github.event.inputs.folder }}
           command: init
+        env:
+          PACKER_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Validate
         uses: hashicorp/packer-github-actions@master
@@ -37,6 +39,7 @@ jobs:
           command: validate
         env:
           PACKER_LOG: ${{ github.event.inputs.logs }}
+          PACKER_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build
         uses: hashicorp/packer-github-actions@master
@@ -45,3 +48,4 @@ jobs:
           command: build
         env:
           PACKER_LOG: ${{ github.event.inputs.logs }}
+          PACKER_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
