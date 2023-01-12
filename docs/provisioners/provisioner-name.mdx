@@ -1,13 +1,13 @@
 ---
 description: >
-  The scaffolding provisioner is used to provisioner Packer builds.
-page_title: Scaffolding - Provisioners
-nav_title: Scaffolding
+  The unikraft provisioner provisions Unikraft images.
+page_title: Unikraft - Provisioners
+nav_title: Unikraft
 ---
 
-# Scaffolding
+# Unikraft
 
-Type: `scaffolding`
+Type: `unikraft`
 
 <!--
   Include a short description about the provisioner. This is a good place
@@ -15,14 +15,14 @@ Type: `scaffolding`
   be helpful to a user. See https://www.packer.io/docs/provisioners/null
 -->
 
-The scaffolding provisioner is used to provisioner Packer builds.
+Provisioners can't be used in the context of Unikraft.
+Images are built at compile time and usually can't be modified after they are done.
+Also, there is no standardised shell yet to connect and run commands inside Unikraft.
+Thus, the provisioner module is disabled.
 
 
 <!-- Provisioner Configuration Fields -->
-
 ### Required
-
-- `mock` (string) - The name of the mock string to display.
 
 
 <!--
@@ -32,9 +32,7 @@ The scaffolding provisioner is used to provisioner Packer builds.
   should be listed under the optionals section. Defaults values should be
   noted in the description of the field
 -->
-
 ### Optional
-
 
 <!--
   A basic example on the usage of the provisioner. Multiple examples
@@ -44,19 +42,4 @@ The scaffolding provisioner is used to provisioner Packer builds.
 ### Example Usage
 
 
-```hcl
- source "null" "example" {
-   communicator = "none"
- }
-
- build {
-   source "null.example" {
-     name = "jay"
-   }
-
-   provisioner "scaffolding" {
-     mock = "mocking ${source.name}"
-   }
- }
-```
 

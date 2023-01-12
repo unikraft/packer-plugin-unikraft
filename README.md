@@ -12,10 +12,10 @@ Currently stubbed components:
 Components not contained in the implementation:
 - A provisioner ([provisioner/unikraft](provisioner/unikraft))
 
-## Running Acceptance Tests - TODO
+## Running Acceptance Tests
 
-Make sure to install the plugin with `go build .` and to have Packer installed locally.
-Then source the built binary to the plugin path with `cp packer-plugin-unikraft ~/.packer.d/plugins/packer-plugin-unikraft`
+First install the plugin using `go build .`.
+Then source the built binary to the plugin path with `cp packer-plugin-unikraft ~/.packer.d/plugins/packer-plugin-unikraft`.
 Once everything needed is set up, run:
 ```
 PACKER_ACC=1 go test -count 1 -v ./... -timeout=120m
@@ -23,14 +23,9 @@ PACKER_ACC=1 go test -count 1 -v ./... -timeout=120m
 
 This will run the acceptance tests for all plugins in this set.
 
-## Test Plugin Example Action - TODO
+**The plugin does not currently have tests included, so the acceptance tests will always pass.**
 
-This scaffolding configures a [manually triggered plugin test action](/.github/workflows/test-plugin-example.yml).
-By default, the action will run Packer at the latest version to init, validate, and build the example configuration
-within the [example](example) folder. This is useful to quickly test a basic template of your plugin against Packer.
-
-The example must contain the `required_plugins` block and require your plugin at the latest or any other released version.
-This will help test and validate plugin releases.
+**Note: The post processor template example requires an already existing `fs0` directory, as it's missing in the `app-helloworld` repository.**
 
 ## Registering Documentation on Packer.io - TODO
 

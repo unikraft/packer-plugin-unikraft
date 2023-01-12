@@ -1,13 +1,13 @@
 ---
 description: >
-  The scaffolding post-processor is used to export Packer Scaffolding builds.
-page_title: Scaffolding - Post-Processors
-nav_title: Scaffolding
+  The unikraft post-processor is used to export Packer Unikraft builds.
+page_title: Unikraft - Post-Processors
+nav_title: Unikraft
 ---
 
-# Scaffolding
+# Unikraft
 
-Type: `scaffolding`
+Type: `unikraft`
 
 <!--
   Include a short description about the post-processor. This is a good place
@@ -15,14 +15,17 @@ Type: `scaffolding`
   be helpful to a user. See https://www.packer.io/docs/provisioners/null
 -->
 
-The scaffolding post-processor is used to export Packer Scaffolding builds.
+The unikraft post-processor is used currently to create the file system for already-built images.
+The post-processor will also be able to pack the image in different formats, as OCI.
 
 
 <!-- Post-Processor Configuration Fields -->
 
 ### Required
 
-- `mock` (string) - The output path where to save exported build to.
+- `type` (string) - The type of the file system archive to export.
+- `source` (string) - The source directory to create the archive from.
+- `destination` (string) - The destination location to create the archive in.
 
 <!--
   Optional Configuration Fields
@@ -31,9 +34,7 @@ The scaffolding post-processor is used to export Packer Scaffolding builds.
   should be listed under the optionals section. Defaults values should be
   noted in the description of the field
 -->
-
 ### Optional
-
 
 <!--
   A basic example on the usage of the post-processor. Multiple examples
@@ -42,18 +43,26 @@ The scaffolding post-processor is used to export Packer Scaffolding builds.
 -->
 ### Example Usage
 
-
 ```hcl
- source "scaffolding" "example" {
-   mock = "jay"
- }
+source "unikraft-builder" "example" {
+  architecture = "x86_64"
+  platform = "kvm"
+  build_path = "/tmp/test/.unikraft/apps/helloworld"
+  workdir = "/tmp/test"
+  pull_source = "helloworld"
+  source_source = "https://github.com/unikraft/app-helloworld"
+}
 
- build {
-   sources = ["source.scaffolding.example"]
+build {
+  sources = [
+    "source.unikraft-builder.example"
+  ]
 
-   post-processor "scaffolding" {
-     mock = "builds/scaffolding.box"
-   }
- }
+  post-processor "unikraft-post-processor" {
+    type   = "cpio"
+    source = "/tmp/test/.unikraft/apps/helloworld/fs0"
+    destination = "/tmp/test/.unikraft/apps/helloworld/build/initramfs.cpio"
+  }
+}
 ```
 

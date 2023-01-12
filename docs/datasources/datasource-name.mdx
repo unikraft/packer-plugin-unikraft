@@ -1,14 +1,14 @@
 ---
 description: >
-  The scaffolding data source is used to create endless Packer plugins using
+  The Unikraft data source is used to create endless Packer plugins using
   a consistent plugin structure.
-page_title: Scaffolding - Data Sources
-nav_title: Scaffolding
+page_title: Unikraft - Data Sources
+nav_title: Unikraft
 ---
 
-# Scaffolding
+# Unikraft
 
-Type: `scaffolding`
+Type: `unikraft`
 
 <!--
   Include a short description about the data source. This is a good place
@@ -16,15 +16,13 @@ Type: `scaffolding`
   data source environment. See https://www.packer.io/docs/datasources/amazon-ami
 -->
 
-The scaffolding data source is used to create endless Packer plugins using
-a consistent plugin structure.
+The Unikraft data source is currently stubbed.
 
 
 <!-- Data source Configuration Fields -->
-
 ### Required
 
-- `mock` (string) - The name of the mock to use for the Scaffolding API.
+- `todo` (string) - TODO.
 
 
 <!--
@@ -34,11 +32,9 @@ a consistent plugin structure.
   should be listed under the optionals section. Defaults values should be
   noted in the description of the field
 -->
-
 ### Optional
 
-- `mock_api_url` (string) - The Scaffolding API endpoint to connect to.
-  Defaults to https://example.com
+- `todo` (string) - TODO
 
 
 
@@ -47,31 +43,33 @@ a consistent plugin structure.
   can be provided to highlight various build configurations.
 
 -->
-
 ### OutPut
 
-- `foo` (string) - The Scaffolding output foo value.
-- `bar` (string) - The Scaffolding output bar value.
+- `todo` (string) - TODO
 
 <!--
   A basic example on the usage of the data source. Multiple examples
   can be provided to highlight various build configurations.
 
 -->
-
 ### Example Usage
 
 
 ```hcl
-data "scaffolding" "example" {
-   mock = "bird"
+data "unikraft-datasource" "example" {
+
  }
- source "scaffolding" "example" {
-   mock = data.scaffolding.example.foo
+ source "unikraft-builder" "example" {
+    architecture = "x86_64"
+    platform = "kvm"
+    build_path = "/tmp/test/.unikraft/apps/helloworld"
+    workdir = "/tmp/test"
+    pull_source = "helloworld"
+    source_source = "https://github.com/unikraft/app-helloworld"
  }
 
  build {
-   sources = ["source.scaffolding.example"]
+   sources = ["source.unikraft-builder.example"]
  }
 ```
 

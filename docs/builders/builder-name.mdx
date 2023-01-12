@@ -1,14 +1,13 @@
 ---
 description: >
-  The scaffolding builder is used to create endless Packer plugins using
-  a consistent plugin structure.
-page_title: Scaffolding - Builders
-nav_title: Scaffolding
+  The unikraft builder uses kraft to create runnable unikraft unikernel images. 
+page_title: Unikraft - Builder
+nav_title: Unikraft
 ---
 
-# Scaffolding
+# Unikraft
 
-Type: `scaffolding`
+Type: `unikraft`
 
 <!--
   Include a short description about the builder. This is a good place
@@ -16,16 +15,21 @@ Type: `scaffolding`
   builder environment. See https://www.packer.io/docs/builders/null
 -->
 
-The scaffolding builder is used to create endless Packer plugins using
-a consistent plugin structure.
+The Unikraft builder uses kraft to create runnable Unikraft unikernel images.
+The builder uses packer version 1.7.0 and up to create pipelines.
+After running the Unikraft builder the end result is one or multiple Unikraft images.
+They are situated in a build directory which is created by Unikraft build system.
 
+The builder wraps around the `kraft` build system which relies on `kraft.yaml` files to define builds.
+Moreover, `kraft` itself wraps over the `kconfig` build system of Unikraft.
+All three together build the images and offer final binaries.
 
 <!-- Builder Configuration Fields -->
-
 ### Required
 
-- `mock` (string) - The name of the mock to use for the Scaffolding API.
-
+- `architecture` (string) - The architecture to build the image for. Examples: `x86_64`, `arm64`, `arm`.
+- `platform` (string) - The platform to build the image for. Examples: `kvm`, `xen`, `linuxu`.
+- `build_path` (string) - The path to the build directory. This is the directory where the `kraft.yaml` file is located.
 
 <!--
   Optional Configuration Fields
@@ -34,13 +38,16 @@ a consistent plugin structure.
   should be listed under the optionals section. Defaults values should be
   noted in the description of the field
 -->
-
 ### Optional
 
-- `mock_api_url` (string) - The Scaffolding API endpoint to connect to.
-  Defaults to https://example.com
-
-
+- `force` (boolean) - Force rebuilding an unikernel from scratch.
+- `target` (string) - The name of the image to build.
+- `jobs` (int) - The number of jobs to run in parallel.
+- `fast` (boolean) - Build jobs in parallel. 
+- `pull_source` (string) - The name of the application to pull.
+- `workdir` (string) - The path to pull the source to. It's a parent directory of `build_path`.
+- `source_source` (string) - The link of the source to pull.
+- `options` (string) - The options to pass to the build system. Options are separated by spaces and of the format `KEY=value`.
 
 <!--
   A basic example on the usage of the builder. Multiple examples
@@ -51,12 +58,17 @@ a consistent plugin structure.
 
 
 ```hcl
- source "scaffolding" "example" {
-   mock = "bird"
+ source "unikraft-builder" "example" {
+    architecture = "x86_64"
+    platform = "kvm"
+    build_path = "/tmp/test/.unikraft/apps/helloworld"
+    workdir = "/tmp/test"
+    pull_source = "helloworld"
+    source_source = "https://github.com/unikraft/app-helloworld"
  }
 
  build {
-   sources = ["source.scaffolding.example"]
+   sources = ["source.unikraft-builder.example"]
  }
 ```
 
