@@ -13,7 +13,7 @@ source "unikraft-builder" "example1" {
   build_path = "/tmp/test1/.unikraft/apps/helloworld"
   workdir = "/tmp/test1"
   pull_source = "helloworld"
-  source_source = "https://github.com/unikraft/app-helloworld"
+  sources = [ "https://github.com/unikraft/app-helloworld" ]
 }
 
 
@@ -28,7 +28,7 @@ build {
     build_path = "/tmp/test2/.unikraft/apps/nginx"
     workdir = "/tmp/test2"
     pull_source = "nginx"
-    source_source = "https://github.com/unikraft/app-nginx"
+    sources = [ "https://github.com/unikraft/app-nginx" ]
 
   }
 

@@ -4,7 +4,11 @@ source "unikraft-builder" "example" {
   build_path = "/tmp/test/.unikraft/apps/helloworld"
   workdir = "/tmp/test"
   pull_source = "helloworld"
-  source_source = "https://github.com/unikraft/app-helloworld"
+  sources_no_default = false
+  sources = [ "https://github.com/unikraft/app-helloworld",
+              "https://github.com/unikraft/app-redis"
+  ]
+
 }
 
 build {
