@@ -34,8 +34,10 @@ type Config struct {
 	PullSource string `mapstructure:"pull_source"`
 	// The workdir to pull in.
 	Workdir string `mapstructure:"workdir"`
-	// The path to the source.
-	SourceSource string `mapstructure:"source_source"`
+	// Links to the sources.
+	Sources []string `mapstructure:"sources"`
+	// Unsources the default manifest location for using custom sources.
+	SourcesNoDefault bool `mapstructure:"sources_no_default"`
 	// Set of options to set.
 	Options string `mapstructure:"options"`
 

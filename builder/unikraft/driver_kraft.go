@@ -6,7 +6,6 @@ import (
 
 	packersdk "github.com/hashicorp/packer-plugin-sdk/packer"
 	"github.com/hashicorp/packer-plugin-sdk/template/interpolate"
-	// kraftunsource "kraftkit.sh/cmd/kraft/pkg/unsource"
 )
 
 type KraftDriver struct {
@@ -45,10 +44,9 @@ func (d *KraftDriver) Source(source string) error {
 }
 
 func (d *KraftDriver) Unsource(source string) error {
-	// src := kraftunsource.Unsource{}
+	c := Unsource{}
 
-	// return src.Run(d.CommandContext, []string{source})
-	return nil
+	return c.UnsourceCmd(d.CommandContext, []string{source})
 }
 
 func (d *KraftDriver) Update() error {

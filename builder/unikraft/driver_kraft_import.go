@@ -683,6 +683,27 @@ func (opts *Source) SourceCmd(ctxt context.Context, args []string) error {
 	return nil
 }
 
+type Unsource struct{}
+
+func (opts *Unsource) UnsourceCmd(ctxt context.Context, args []string) error {
+	var err error
+	source := ""
+
+	if len(args) > 0 {
+		source = args[0]
+	}
+
+	ctx := ctxt
+	pm := packmanager.G(ctx)
+
+	pm, err = pm.IsCompatible(ctx, source)
+	if err != nil {
+		return err
+	}
+
+	return pm.RemoveSource(ctx, source)
+}
+
 type Update struct {
 	Manager string
 }

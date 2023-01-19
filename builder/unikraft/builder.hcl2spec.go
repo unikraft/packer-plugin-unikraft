@@ -27,7 +27,8 @@ type FlatConfig struct {
 	Path                *string           `mapstructure:"build_path" required:"true" cty:"build_path" hcl:"build_path"`
 	PullSource          *string           `mapstructure:"pull_source" cty:"pull_source" hcl:"pull_source"`
 	Workdir             *string           `mapstructure:"workdir" cty:"workdir" hcl:"workdir"`
-	SourceSource        *string           `mapstructure:"source_source" cty:"source_source" hcl:"source_source"`
+	Sources             []string          `mapstructure:"sources" cty:"sources" hcl:"sources"`
+	SourcesNoDefault    *bool             `mapstructure:"sources_no_default" cty:"sources_no_default" hcl:"sources_no_default"`
 	Options             *string           `mapstructure:"options" cty:"options" hcl:"options"`
 }
 
@@ -60,7 +61,8 @@ func (*FlatConfig) HCL2Spec() map[string]hcldec.Spec {
 		"build_path":                 &hcldec.AttrSpec{Name: "build_path", Type: cty.String, Required: false},
 		"pull_source":                &hcldec.AttrSpec{Name: "pull_source", Type: cty.String, Required: false},
 		"workdir":                    &hcldec.AttrSpec{Name: "workdir", Type: cty.String, Required: false},
-		"source_source":              &hcldec.AttrSpec{Name: "source_source", Type: cty.String, Required: false},
+		"sources":                    &hcldec.AttrSpec{Name: "sources", Type: cty.List(cty.String), Required: false},
+		"sources_no_default":         &hcldec.AttrSpec{Name: "sources_no_default", Type: cty.Bool, Required: false},
 		"options":                    &hcldec.AttrSpec{Name: "options", Type: cty.String, Required: false},
 	}
 	return s

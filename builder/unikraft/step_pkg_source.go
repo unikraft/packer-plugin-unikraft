@@ -9,6 +9,7 @@ import (
 )
 
 type StepPkgSource struct {
+	defaultAlreadyMissing bool
 }
 
 // Run executes the step of sourcing a package by calling the `kraft pkg source` command.
@@ -23,18 +24,31 @@ func (s *StepPkgSource) Run(_ context.Context, state multistep.StateBag) multist
 		return multistep.ActionHalt
 	}
 
-	if config.SourceSource == "" {
+	driver := state.Get("driver").(Driver)
+
+	if config.SourcesNoDefault {
+		s.defaultAlreadyMissing = false
+		err := driver.Source("https://manifests.kraftkit.sh/index.yaml")
+		if err != nil {
+			// Do not fail if there's no default manifest, but output the error
+			s.defaultAlreadyMissing = true
+			err := fmt.Errorf("no default package link to unsource, continuing: %s", err)
+			ui.Error(err.Error())
+		}
+	}
+
+	if len(config.Sources) == 0 {
 		return multistep.ActionContinue
 	}
 
-	driver := state.Get("driver").(Driver)
-
-	err := driver.Source(config.SourceSource)
-	if err != nil {
-		err := fmt.Errorf("error encountered sourcing kraft package: %s", err)
-		state.Put("error", err)
-		ui.Error(err.Error())
-		return multistep.ActionHalt
+	for _, source := range config.Sources {
+		err := driver.Source(source)
+		if err != nil {
+			err := fmt.Errorf("error encountered sourcing kraft package: %s", err)
+			state.Put("error", err)
+			ui.Error(err.Error())
+			return multistep.ActionHalt
+		}
 	}
 
 	return multistep.ActionContinue
@@ -51,17 +65,28 @@ func (s *StepPkgSource) Cleanup(state multistep.StateBag) {
 		return
 	}
 
-	if config.SourceSource == "" {
+	driver := state.Get("driver").(Driver)
+
+	if config.SourcesNoDefault || s.defaultAlreadyMissing {
+		err := driver.Source("https://manifests.kraftkit.sh/index.yaml")
+		if err != nil {
+			// Do not fail if there's no default manifest, but output the error
+			err := fmt.Errorf("could not resource default manifest, continuing: %s", err)
+			ui.Error(err.Error())
+		}
+	}
+
+	if len(config.Sources) == 0 {
 		return
 	}
 
-	driver := state.Get("driver").(Driver)
-
-	err := driver.Unsource(config.SourceSource)
-	if err != nil {
-		err := fmt.Errorf("error encountered unsourcing kraft package: %s", err)
-		state.Put("error", err)
-		ui.Error(err.Error())
-		return
+	for _, source := range config.Sources {
+		err := driver.Unsource(source)
+		if err != nil {
+			err := fmt.Errorf("error encountered unsourcing kraft package: %s", err)
+			state.Put("error", err)
+			ui.Error(err.Error())
+			return
+		}
 	}
 }
