@@ -46,7 +46,8 @@ All three together build the images and offer final binaries.
 - `fast` (boolean) - Build jobs in parallel. 
 - `pull_source` (string) - The name of the application to pull.
 - `workdir` (string) - The path to pull the source to. It's a parent directory of `build_path`.
-- `source_source` (string) - The link of the source to pull.
+- `sources_no_default` (boolean) - Do not pull the default sources.
+- `sources` (string list) - The links of the sources to pull.
 - `options` (string) - The options to pass to the build system. Options are separated by spaces and of the format `KEY=value`.
 
 <!--
@@ -64,7 +65,8 @@ All three together build the images and offer final binaries.
     build_path = "/tmp/test/.unikraft/apps/helloworld"
     workdir = "/tmp/test"
     pull_source = "helloworld"
-    source_source = "https://github.com/unikraft/app-helloworld"
+    sources_no_default = false
+    sources = [ "https://github.com/unikraft/app-helloworld" ]
  }
 
  build {

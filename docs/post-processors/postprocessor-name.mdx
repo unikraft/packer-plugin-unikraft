@@ -50,7 +50,7 @@ source "unikraft-builder" "example" {
   build_path = "/tmp/test/.unikraft/apps/helloworld"
   workdir = "/tmp/test"
   pull_source = "helloworld"
-  source_source = "https://github.com/unikraft/app-helloworld"
+    sources = [ "https://github.com/unikraft/app-helloworld" ]
 }
 
 build {
