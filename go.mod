@@ -3,12 +3,12 @@ module packer-plugin-unikraft
 go 1.18
 
 require (
-	github.com/hashicorp/hcl/v2 v2.13.0
-	github.com/hashicorp/packer-plugin-sdk v0.3.1
-	github.com/mitchellh/mapstructure v1.4.3
-	github.com/sirupsen/logrus v1.8.1
+	github.com/hashicorp/hcl/v2 v2.15.0
+	github.com/hashicorp/packer-plugin-sdk v0.3.2
+	github.com/mitchellh/mapstructure v1.5.0
+	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.6.1
-	github.com/zclconf/go-cty v1.10.0
+	github.com/zclconf/go-cty v1.12.1
 	kraftkit.sh v0.3.0
 )
 
