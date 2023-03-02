@@ -3,7 +3,6 @@ package unikraft
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -60,7 +59,7 @@ func (s *StepPkgPull) Cleanup(state multistep.StateBag) {
 
 	// Delete everything in the builddir except the resulting images in the `build` directory.
 	buildDir := filepath.Join(config.Workdir, ".unikraft", "apps", config.PullSource)
-	files, err := ioutil.ReadDir(buildDir)
+	files, err := os.ReadDir(buildDir)
 	if err != nil {
 		err := fmt.Errorf("error encountered reading workdir: %s", err)
 		state.Put("error", err)

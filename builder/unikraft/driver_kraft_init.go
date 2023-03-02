@@ -61,16 +61,6 @@ func KraftCommandContext() context.Context {
 }
 
 func init() {
-	options, err := packmanager.NewPackageManagerOptions()
-	if err != nil {
-		panic(fmt.Sprintf("could not register package manager options: %s", err))
-	}
-
-	manager, err := manifest.NewManifestPackageManagerFromOptions(options)
-	if err != nil {
-		panic(fmt.Sprintf("could not register package manager: %s", err))
-	}
-
 	// Register a new pack.Package type
-	packmanager.RegisterPackageManager(ManifestContext, manager)
+	packmanager.RegisterPackageManager(ManifestContext, manifest.NewManifestManager())
 }

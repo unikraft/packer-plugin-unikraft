@@ -61,6 +61,7 @@ func (opts *Build) BuildCmd(ctxt context.Context, args []string) error {
 
 	// Initialize at least the configuration options for a project
 	project, err := app.NewProjectFromOptions(
+		ctx,
 		app.WithProjectWorkdir(workdir),
 		app.WithProjectDefaultKraftfiles(),
 	)
@@ -72,8 +73,8 @@ func (opts *Build) BuildCmd(ctxt context.Context, args []string) error {
 		return fmt.Errorf("cannot build uninitialized project! start with: ukbuild init")
 	}
 
-	parallel := !config.G(ctx).NoParallel
-	norender := log.LoggerTypeFromString(config.G(ctx).Log.Type) != log.FANCY
+	parallel := !config.G[config.KraftKit](ctx).NoParallel
+	norender := log.LoggerTypeFromString(config.G[config.KraftKit](ctx).Log.Type) != log.FANCY
 
 	var missingPacks []pack.Package
 	var processes []*paraprogress.Process
@@ -83,7 +84,9 @@ func (opts *Build) BuildCmd(ctxt context.Context, args []string) error {
 	if err != nil && project.Template().Name() != "" {
 		var packages []pack.Package
 		search := processtree.NewProcessTreeItem(
-			fmt.Sprintf("finding %s/%s:%s...", project.Template().Type(), project.Template().Name(), project.Template().Version()), "",
+			fmt.Sprintf("finding %s...",
+				unikraft.TypeNameVersion(project.Template()),
+			), "",
 			func(ctx context.Context) error {
 				packages, err = packmanager.G(ctx).Catalog(ctx, packmanager.CatalogQuery{
 					Name:    project.Template().Name(),
@@ -96,9 +99,13 @@ func (opts *Build) BuildCmd(ctxt context.Context, args []string) error {
 				}
 
 				if len(packages) == 0 {
-					return fmt.Errorf("could not find: %s", project.Template().Name())
+					return fmt.Errorf("could not find: %s",
+						unikraft.TypeNameVersion(project.Template()),
+					)
 				} else if len(packages) > 1 {
-					return fmt.Errorf("too many options for %s", project.Template().Name())
+					return fmt.Errorf("too many options for %s",
+						unikraft.TypeNameVersion(project.Template()),
+					)
 				}
 
 				return nil
@@ -123,7 +130,9 @@ func (opts *Build) BuildCmd(ctxt context.Context, args []string) error {
 		}
 
 		proc := paraprogress.NewProcess(
-			fmt.Sprintf("pulling %s", packages[0].Options().TypeNameVersion()),
+			fmt.Sprintf("pulling %s",
+				unikraft.TypeNameVersion(packages[0]),
+			),
 			func(ctx context.Context, w func(progress float64)) error {
 				return packages[0].Pull(
 					ctx,
@@ -160,6 +169,7 @@ func (opts *Build) BuildCmd(ctxt context.Context, args []string) error {
 		}
 
 		templateProject, err := app.NewProjectFromOptions(
+			ctx,
 			app.WithProjectWorkdir(templateWorkdir),
 			app.WithProjectDefaultKraftfiles(),
 		)
@@ -167,7 +177,10 @@ func (opts *Build) BuildCmd(ctxt context.Context, args []string) error {
 			return err
 		}
 
-		project = templateProject.MergeTemplate(project)
+		project, err = templateProject.MergeTemplate(ctx, project)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Overwrite template with user options
@@ -179,7 +192,9 @@ func (opts *Build) BuildCmd(ctxt context.Context, args []string) error {
 		component := component // loop closure
 
 		searches = append(searches, processtree.NewProcessTreeItem(
-			fmt.Sprintf("finding %s/%s:%s...", component.Type(), component.Component().Name, component.Component().Version), "",
+			fmt.Sprintf("finding %s...",
+				unikraft.TypeNameVersion(component),
+			), "",
 			func(ctx context.Context) error {
 				p, err := packmanager.G(ctx).Catalog(ctx, packmanager.CatalogQuery{
 					Name: component.Name(),
@@ -194,9 +209,13 @@ func (opts *Build) BuildCmd(ctxt context.Context, args []string) error {
 				}
 
 				if len(p) == 0 {
-					return fmt.Errorf("could not find: %s", component.Component().Name)
+					return fmt.Errorf("could not find: %s",
+						unikraft.TypeNameVersion(component),
+					)
 				} else if len(p) > 1 {
-					return fmt.Errorf("too many options for %s", component.Component().Name)
+					return fmt.Errorf("too many options for %s",
+						unikraft.TypeNameVersion(component),
+					)
 				}
 
 				missingPacks = append(missingPacks, p...)
@@ -226,12 +245,11 @@ func (opts *Build) BuildCmd(ctxt context.Context, args []string) error {
 
 	if len(missingPacks) > 0 {
 		for _, p := range missingPacks {
-			if p.Options() == nil {
-				return fmt.Errorf("unexpected error occurred please try again")
-			}
 			p := p // loop closure
 			processes = append(processes, paraprogress.NewProcess(
-				fmt.Sprintf("pulling %s", p.Options().TypeNameVersion()),
+				fmt.Sprintf("pulling %s",
+					unikraft.TypeNameVersion(p),
+				),
 				func(ctx context.Context, w func(progress float64)) error {
 					return p.Pull(
 						ctx,
@@ -263,13 +281,9 @@ func (opts *Build) BuildCmd(ctxt context.Context, args []string) error {
 	processes = []*paraprogress.Process{} // reset
 
 	var selected target.Targets
-	targets, err := project.Targets()
-	if err != nil {
-		return err
-	}
 
 	// Filter the targets by CLI selection
-	for _, targ := range targets {
+	for _, targ := range project.Targets() {
 		switch true {
 		case
 			// If no arguments are supplied
@@ -284,18 +298,18 @@ func (opts *Build) BuildCmd(ctxt context.Context, args []string) error {
 			// If only the --arch flag is supplied and the target's arch matches
 			len(opts.Architecture) > 0 &&
 				len(opts.Platform) == 0 &&
-				targ.Architecture.Name() == opts.Architecture,
+				targ.Architecture().Name() == opts.Architecture,
 
 			// If only the --plat flag is supplied and the target's platform matches
 			len(opts.Platform) > 0 &&
 				len(opts.Architecture) == 0 &&
-				targ.Platform.Name() == opts.Platform,
+				targ.Platform().Name() == opts.Platform,
 
 			// If both the --arch and --plat flag are supplied and match the target
 			len(opts.Platform) > 0 &&
 				len(opts.Architecture) > 0 &&
-				targ.Architecture.Name() == opts.Architecture &&
-				targ.Platform.Name() == opts.Platform:
+				targ.Architecture().Name() == opts.Architecture &&
+				targ.Platform().Name() == opts.Platform:
 
 			selected = append(selected, targ)
 
@@ -305,8 +319,7 @@ func (opts *Build) BuildCmd(ctxt context.Context, args []string) error {
 	}
 
 	if len(selected) == 0 {
-		log.G(ctx).Info("no selected to build")
-		return nil
+		return fmt.Errorf("no targets selected to build")
 	}
 
 	var mopts []make.MakeOption
@@ -325,8 +338,8 @@ func (opts *Build) BuildCmd(ctxt context.Context, args []string) error {
 				func(ctx context.Context, w func(progress float64)) error {
 					return project.DefConfig(
 						ctx,
-						&targ, // Target-specific options
-						nil,   // No extra configuration options
+						targ, // Target-specific options
+						nil,  // No extra configuration options
 						make.WithProgressFunc(w),
 						make.WithSilent(true),
 						make.WithExecOptions(
@@ -345,7 +358,7 @@ func (opts *Build) BuildCmd(ctxt context.Context, args []string) error {
 				func(ctx context.Context, w func(progress float64)) error {
 					return project.Prepare(
 						ctx,
-						&targ, // Target-specific options
+						targ, // Target-specific options
 						append(
 							mopts,
 							make.WithProgressFunc(w),
@@ -364,7 +377,7 @@ func (opts *Build) BuildCmd(ctxt context.Context, args []string) error {
 			func(ctx context.Context, w func(progress float64)) error {
 				return project.Build(
 					ctx,
-					&targ, // Target-specific options
+					targ, // Target-specific options
 					app.WithBuildProgressFunc(w),
 					app.WithBuildMakeOptions(append(mopts,
 						make.WithExecOptions(
@@ -416,6 +429,7 @@ func (opts *ProperClean) ProperCleanCmd(ctxt context.Context, args []string) err
 
 	// Initialize at least the configuration options for a project
 	project, err := app.NewProjectFromOptions(
+		ctx,
 		app.WithProjectWorkdir(workdir),
 		app.WithProjectDefaultKraftfiles(),
 	)
@@ -440,7 +454,7 @@ type Pull struct {
 
 func (opts *Pull) PullCmd(ctxt context.Context, args []string) error {
 	var err error
-	var project *app.ApplicationConfig
+	var project app.Application
 	var processes []*paraprogress.Process
 	var queries []packmanager.CatalogQuery
 
@@ -459,8 +473,8 @@ func (opts *Pull) PullCmd(ctxt context.Context, args []string) error {
 	workdir := opts.Workdir
 	ctx := ctxt
 	pm := packmanager.G(ctx)
-	parallel := !config.G(ctx).NoParallel
-	norender := log.LoggerTypeFromString(config.G(ctx).Log.Type) != log.FANCY
+	parallel := !config.G[config.KraftKit](ctx).NoParallel
+	norender := log.LoggerTypeFromString(config.G[config.KraftKit](ctx).Log.Type) != log.FANCY
 
 	// Force a particular package manager
 	if len(opts.Manager) > 0 && opts.Manager != "auto" {
@@ -475,6 +489,7 @@ func (opts *Pull) PullCmd(ctxt context.Context, args []string) error {
 	if f, err := os.Stat(query); err == nil && f.IsDir() {
 		workdir = query
 		project, err := app.NewProjectFromOptions(
+			ctx,
 			app.WithProjectWorkdir(workdir),
 			app.WithProjectDefaultKraftfiles(),
 		)
@@ -482,12 +497,13 @@ func (opts *Pull) PullCmd(ctxt context.Context, args []string) error {
 			return err
 		}
 
-		_, err = project.Components()
-		if err != nil {
+		if _, err = project.Components(); err != nil {
 			// Pull the template from the package manager
 			var packages []pack.Package
 			search := processtree.NewProcessTreeItem(
-				fmt.Sprintf("finding %s/%s:%s...", project.Template().Type(), project.Template().Name(), project.Template().Version()), "",
+				fmt.Sprintf("finding %s...",
+					unikraft.TypeNameVersion(project.Template()),
+				), "",
 				func(ctx context.Context) error {
 					packages, err = pm.Catalog(ctx, packmanager.CatalogQuery{
 						Name:    project.Template().Name(),
@@ -500,9 +516,9 @@ func (opts *Pull) PullCmd(ctxt context.Context, args []string) error {
 					}
 
 					if len(packages) == 0 {
-						return fmt.Errorf("could not find: %s", project.Template().Name())
+						return fmt.Errorf("could not find: %s", unikraft.TypeNameVersion(project.Template()))
 					} else if len(packages) > 1 {
-						return fmt.Errorf("too many options for %s", project.Template().Name())
+						return fmt.Errorf("too many options for %s", unikraft.TypeNameVersion(project.Template()))
 					}
 					return nil
 				},
@@ -526,7 +542,9 @@ func (opts *Pull) PullCmd(ctxt context.Context, args []string) error {
 			}
 
 			proc := paraprogress.NewProcess(
-				fmt.Sprintf("pulling %s", packages[0].Options().TypeNameVersion()),
+				fmt.Sprintf("pulling %s...",
+					unikraft.TypeNameVersion(packages[0]),
+				),
 				func(ctx context.Context, w func(progress float64)) error {
 					return packages[0].Pull(
 						ctx,
@@ -562,6 +580,7 @@ func (opts *Pull) PullCmd(ctxt context.Context, args []string) error {
 		}
 
 		templateProject, err := app.NewProjectFromOptions(
+			ctx,
 			app.WithProjectWorkdir(templateWorkdir),
 			app.WithProjectDefaultKraftfiles(),
 		)
@@ -569,7 +588,11 @@ func (opts *Pull) PullCmd(ctxt context.Context, args []string) error {
 			return err
 		}
 
-		project = templateProject.MergeTemplate(project)
+		project, err = templateProject.MergeTemplate(ctx, project)
+		if err != nil {
+			return err
+		}
+
 		// List the components
 		components, err := project.Components()
 		if err != nil {
@@ -579,29 +602,31 @@ func (opts *Pull) PullCmd(ctxt context.Context, args []string) error {
 			queries = append(queries, packmanager.CatalogQuery{
 				Name:    c.Name(),
 				Version: c.Version(),
+				Source:  c.Source(),
 				Types:   []unikraft.ComponentType{c.Type()},
+				NoCache: opts.NoCache,
 			})
 		}
 
 		// Is this a list (space delimetered) of packages to pull?
 	} else {
 		for _, c := range strings.Split(query, " ") {
-			query := packmanager.CatalogQuery{}
-			t, n, v, err := unikraft.GuessTypeNameVersion(c)
-			if err != nil {
-				continue
-			}
+			query := packmanager.CatalogQuery{NoCache: opts.NoCache}
 
-			if t != unikraft.ComponentTypeUnknown {
-				query.Types = append(query.Types, t)
-			}
+			if t, n, v, err := unikraft.GuessTypeNameVersion(c); err == nil {
+				if t != unikraft.ComponentTypeUnknown {
+					query.Types = append(query.Types, t)
+				}
 
-			if len(n) > 0 {
-				query.Name = n
-			}
+				if len(n) > 0 {
+					query.Name = n
+				}
 
-			if len(v) > 0 {
-				query.Version = v
+				if len(v) > 0 {
+					query.Version = v
+				}
+			} else {
+				query.Source = c
 			}
 
 			queries = append(queries, query)
@@ -622,7 +647,9 @@ func (opts *Pull) PullCmd(ctxt context.Context, args []string) error {
 		for _, p := range next {
 			p := p
 			processes = append(processes, paraprogress.NewProcess(
-				fmt.Sprintf("pulling %s", p.Options().TypeNameVersion()),
+				fmt.Sprintf("pulling %s...",
+					unikraft.TypeNameVersion(p),
+				),
 				func(ctx context.Context, w func(progress float64)) error {
 					return p.Pull(
 						ctx,
@@ -652,7 +679,7 @@ func (opts *Pull) PullCmd(ctxt context.Context, args []string) error {
 	}
 
 	if project != nil {
-		fmt.Fprint(iostreams.G(ctx).Out, project.PrintInfo())
+		fmt.Fprint(iostreams.G(ctx).Out, project.PrintInfo(ctx))
 	}
 
 	return nil
@@ -676,11 +703,7 @@ func (opts *Source) SourceCmd(ctxt context.Context, args []string) error {
 		return err
 	}
 
-	if err = pm.AddSource(ctx, source); err != nil {
-		return err
-	}
-
-	return nil
+	return pm.AddSource(ctx, source)
 }
 
 type Unsource struct{}
@@ -722,8 +745,8 @@ func (opts *Update) UpdateCmd(ctxt context.Context, args []string) error {
 		}
 	}
 
-	parallel := !config.G(ctx).NoParallel
-	norender := log.LoggerTypeFromString(config.G(ctx).Log.Type) != log.FANCY
+	parallel := !config.G[config.KraftKit](ctx).NoParallel
+	norender := log.LoggerTypeFromString(config.G[config.KraftKit](ctx).Log.Type) != log.FANCY
 
 	model, err := processtree.NewProcessTree(
 		ctx,
@@ -746,11 +769,7 @@ func (opts *Update) UpdateCmd(ctxt context.Context, args []string) error {
 		return err
 	}
 
-	if err := model.Start(); err != nil {
-		return err
-	}
-
-	return nil
+	return model.Start()
 }
 
 type Set struct {
@@ -800,6 +819,7 @@ func (opts *Set) SetCmd(ctxt context.Context, args []string) error {
 
 	// Initialize at least the configuration options for a project
 	project, err := app.NewProjectFromOptions(
+		ctx,
 		app.WithProjectWorkdir(workdir),
 		app.WithProjectDefaultKraftfiles(),
 		app.WithProjectConfig(confOpts),
@@ -853,6 +873,7 @@ func (opts *Unset) UnsetCmd(ctxt context.Context, args []string) error {
 
 	// Initialize at least the configuration options for a project
 	project, err := app.NewProjectFromOptions(
+		ctx,
 		app.WithProjectWorkdir(workdir),
 		// app.WithProjectDefaultConfigPath(),
 		app.WithProjectConfig(confOpts),
