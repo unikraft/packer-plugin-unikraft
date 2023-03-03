@@ -6,6 +6,7 @@ require (
 	github.com/hashicorp/hcl/v2 v2.16.1
 	github.com/hashicorp/packer-plugin-sdk v0.3.4
 	github.com/mitchellh/mapstructure v1.5.0
+	github.com/rancher/wrangler v1.0.2
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.6.1
 	github.com/zclconf/go-cty v1.12.1
