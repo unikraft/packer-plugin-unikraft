@@ -3,7 +3,9 @@ package unikraft
 import (
 	"context"
 	"fmt"
+	"os"
 
+	"github.com/rancher/wrangler/pkg/signals"
 	"github.com/spf13/cobra"
 	"kraftkit.sh/cmd/kraft/build"
 	"kraftkit.sh/cmd/kraft/clean"
@@ -21,6 +23,7 @@ import (
 	"kraftkit.sh/cmd/kraft/stop"
 	"kraftkit.sh/cmd/kraft/unset"
 	"kraftkit.sh/cmdfactory"
+	"kraftkit.sh/config"
 	"kraftkit.sh/manifest"
 	"kraftkit.sh/pack"
 	"kraftkit.sh/packmanager"
@@ -40,7 +43,23 @@ func (k *Kraft) Run(cmd *cobra.Command, args []string) error {
 // It needs to initialise the commands to ensure that internal context functions are called.
 func KraftCommandContext() context.Context {
 	command := cobra.Command{}
-	command.SetContext(context.Background())
+	ctx := signals.SetupSignalContext()
+
+	cfg, err := config.NewDefaultKraftKitConfig()
+	if err != nil {
+		panic(err)
+	}
+	cfgm, err := config.NewConfigManager(
+		cfg,
+		config.WithFile[config.KraftKit](config.DefaultConfigFile(), true),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	ctx = config.WithConfigManager(ctx, cfgm)
+
+	command.SetContext(ctx)
 	cmd := cmdfactory.New(&Kraft{}, command)
 	cmd.AddCommand(build.New())
 	cmd.AddCommand(clean.New())
@@ -57,6 +76,9 @@ func KraftCommandContext() context.Context {
 	cmd.AddCommand(set.New())
 	cmd.AddCommand(stop.New())
 	cmd.AddCommand(unset.New())
+
+	cmdfactory.AttributeFlags(cmd, cfgm.Config, os.Args...)
+
 	return cmd.Context()
 }
 
