@@ -85,14 +85,12 @@ func (s *StepBuild) Cleanup(state multistep.StateBag) {
 		return
 	}
 
-	driver := state.Get("driver").(Driver)
-
-	err := driver.ProperClean(config.Path)
+	// Remove the build folder
+	err := os.RemoveAll(filepath.Join(config.Path, "build"))
 	if err != nil {
 		err := fmt.Errorf("error encountered cleaning kraft package: %s", err)
 		state.Put("error", err)
 		ui.Error(err.Error())
-		return
 	}
 
 	// Rename the dist folder to build
