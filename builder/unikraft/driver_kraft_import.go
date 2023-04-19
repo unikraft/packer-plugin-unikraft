@@ -6,6 +6,7 @@ package unikraft
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -38,6 +39,52 @@ type Build struct {
 	Platform     string
 	SaveBuildLog string
 	Target       string
+}
+
+func FilterTargets(targets target.Targets, arch, plat, targ string) target.Targets {
+	var selected target.Targets
+
+	type condition func(target.Target, string, string, string) bool
+
+	conditions := []condition{
+		// If no arguments are supplied
+		func(t target.Target, arch, plat, targ string) bool {
+			return len(targ) == 0 && len(arch) == 0 && len(plat) == 0
+		},
+
+		// If the `targ` is supplied and the target name match
+		func(t target.Target, arch, plat, targ string) bool {
+			return len(targ) > 0 && t.Name() == targ
+		},
+
+		// If only `arch` is supplied and the target's arch matches
+		func(t target.Target, arch, plat, targ string) bool {
+			return len(arch) > 0 && len(plat) == 0 && t.Architecture().Name() == arch
+		},
+
+		// If only `plat`` is supplied and the target's platform matches
+		func(t target.Target, arch, plat, targ string) bool {
+			return len(plat) > 0 && len(arch) == 0 && t.Platform().Name() == plat
+		},
+
+		// If both `arch` and `plat` are supplied and match the target
+		func(t target.Target, arch, plat, targ string) bool {
+			return len(plat) > 0 && len(arch) > 0 && t.Architecture().Name() == arch && t.Platform().Name() == plat
+		},
+	}
+
+	// Filter `targets` by input arguments `arch`, `plat` and/or `targ`
+	for _, t := range targets {
+		for _, c := range conditions {
+			if !c(t, arch, plat, targ) {
+				continue
+			}
+
+			selected = append(selected, t)
+		}
+	}
+
+	return selected
 }
 
 func (opts *Build) BuildCmd(ctxt context.Context, args []string) error {
@@ -75,16 +122,32 @@ func (opts *Build) BuildCmd(ctxt context.Context, args []string) error {
 
 	parallel := !config.G[config.KraftKit](ctx).NoParallel
 	norender := log.LoggerTypeFromString(config.G[config.KraftKit](ctx).Log.Type) != log.FANCY
+	nameWidth := -1
+
+	// Calculate the width of the longest process name so that we can align the
+	// two independent processtrees if we are using "render" mode (aka the fancy
+	// mode is enabled).
+	if !norender {
+		// The longest word is "configuring" (which is 11 characters long), plus
+		// additional space characters (2 characters), brackets (2 characters) the
+		// name of the project and the target/plat string (which is variable in
+		// length).
+		for _, targ := range project.Targets() {
+			if newLen := len(targ.Name()) + len(target.TargetPlatArchName(targ)) + 15; newLen > nameWidth {
+				nameWidth = newLen
+			}
+		}
+	}
 
 	var missingPacks []pack.Package
 	var processes []*paraprogress.Process
 	var searches []*processtree.ProcessTreeItem
 
-	_, err = project.Components()
+	_, err = project.Components(ctx)
 	if err != nil && project.Template().Name() != "" {
 		var packages []pack.Package
 		search := processtree.NewProcessTreeItem(
-			fmt.Sprintf("finding %s...",
+			fmt.Sprintf("finding %s",
 				unikraft.TypeNameVersion(project.Template()),
 			), "",
 			func(ctx context.Context) error {
@@ -152,6 +215,7 @@ func (opts *Build) BuildCmd(ctxt context.Context, args []string) error {
 			paraprogress.IsParallel(parallel),
 			paraprogress.WithRenderer(norender),
 			paraprogress.WithFailFast(true),
+			paraprogress.WithNameWidth(nameWidth),
 		)
 		if err != nil {
 			return err
@@ -184,7 +248,7 @@ func (opts *Build) BuildCmd(ctxt context.Context, args []string) error {
 	}
 
 	// Overwrite template with user options
-	components, err := project.Components()
+	components, err := project.Components(ctx)
 	if err != nil {
 		return err
 	}
@@ -192,7 +256,7 @@ func (opts *Build) BuildCmd(ctxt context.Context, args []string) error {
 		component := component // loop closure
 
 		searches = append(searches, processtree.NewProcessTreeItem(
-			fmt.Sprintf("finding %s...",
+			fmt.Sprintf("finding %s",
 				unikraft.TypeNameVersion(component),
 			), "",
 			func(ctx context.Context) error {
@@ -202,6 +266,7 @@ func (opts *Build) BuildCmd(ctxt context.Context, args []string) error {
 						component.Type(),
 					},
 					Version: component.Version(),
+					Source:  component.Source(),
 					NoCache: opts.NoCache,
 				})
 				if err != nil {
@@ -268,6 +333,7 @@ func (opts *Build) BuildCmd(ctxt context.Context, args []string) error {
 			paraprogress.IsParallel(parallel),
 			paraprogress.WithRenderer(norender),
 			paraprogress.WithFailFast(true),
+			paraprogress.WithNameWidth(nameWidth),
 		)
 		if err != nil {
 			return err
@@ -280,43 +346,13 @@ func (opts *Build) BuildCmd(ctxt context.Context, args []string) error {
 
 	processes = []*paraprogress.Process{} // reset
 
-	var selected target.Targets
-
-	// Filter the targets by CLI selection
-	for _, targ := range project.Targets() {
-		switch true {
-		case
-			// If no arguments are supplied
-			len(opts.Target) == 0 &&
-				len(opts.Architecture) == 0 &&
-				len(opts.Platform) == 0,
-
-			// If the --target flag is supplied and the target name match
-			len(opts.Target) > 0 &&
-				targ.Name() == opts.Target,
-
-			// If only the --arch flag is supplied and the target's arch matches
-			len(opts.Architecture) > 0 &&
-				len(opts.Platform) == 0 &&
-				targ.Architecture().Name() == opts.Architecture,
-
-			// If only the --plat flag is supplied and the target's platform matches
-			len(opts.Platform) > 0 &&
-				len(opts.Architecture) == 0 &&
-				targ.Platform().Name() == opts.Platform,
-
-			// If both the --arch and --plat flag are supplied and match the target
-			len(opts.Platform) > 0 &&
-				len(opts.Architecture) > 0 &&
-				targ.Architecture().Name() == opts.Architecture &&
-				targ.Platform().Name() == opts.Platform:
-
-			selected = append(selected, targ)
-
-		default:
-			continue
-		}
-	}
+	// Filter project targets by any provided CLI options
+	selected := FilterTargets(
+		project.Targets(),
+		opts.Architecture,
+		opts.Platform,
+		opts.Target,
+	)
 
 	if len(selected) == 0 {
 		return fmt.Errorf("no targets selected to build")
@@ -334,9 +370,9 @@ func (opts *Build) BuildCmd(ctxt context.Context, args []string) error {
 		targ := targ
 		if !opts.NoConfigure {
 			processes = append(processes, paraprogress.NewProcess(
-				fmt.Sprintf("configuring %s (%s)", targ.Name(), targ.ArchPlatString()),
+				fmt.Sprintf("configuring %s (%s)", targ.Name(), target.TargetPlatArchName(targ)),
 				func(ctx context.Context, w func(progress float64)) error {
-					return project.DefConfig(
+					return project.Configure(
 						ctx,
 						targ, // Target-specific options
 						nil,  // No extra configuration options
@@ -354,7 +390,7 @@ func (opts *Build) BuildCmd(ctxt context.Context, args []string) error {
 
 		if !opts.NoPrepare {
 			processes = append(processes, paraprogress.NewProcess(
-				fmt.Sprintf("preparing %s (%s)", targ.Name(), targ.ArchPlatString()),
+				fmt.Sprintf("preparing %s (%s)", targ.Name(), target.TargetPlatArchName(targ)),
 				func(ctx context.Context, w func(progress float64)) error {
 					return project.Prepare(
 						ctx,
@@ -373,7 +409,7 @@ func (opts *Build) BuildCmd(ctxt context.Context, args []string) error {
 		}
 
 		processes = append(processes, paraprogress.NewProcess(
-			fmt.Sprintf("building %s (%s)", targ.Name(), targ.ArchPlatString()),
+			fmt.Sprintf("building %s (%s)", targ.Name(), target.TargetPlatArchName(targ)),
 			func(ctx context.Context, w func(progress float64)) error {
 				return project.Build(
 					ctx,
@@ -444,7 +480,7 @@ type Pull struct {
 	AllVersions  bool
 	Architecture string
 	Manager      string
-	NoCache      bool
+	ForceCache   bool
 	NoChecksum   bool
 	NoDeps       bool
 	Platform     string
@@ -456,21 +492,19 @@ func (opts *Pull) PullCmd(ctxt context.Context, args []string) error {
 	var err error
 	var project app.Application
 	var processes []*paraprogress.Process
-	var queries []packmanager.CatalogQuery
 
-	query := ""
-	if len(args) > 0 {
-		query = strings.Join(args, " ")
-	}
-
-	if len(query) == 0 {
-		query, err = os.Getwd()
+	workdir := opts.Workdir
+	if len(workdir) == 0 {
+		workdir, err = os.Getwd()
 		if err != nil {
 			return err
 		}
 	}
 
-	workdir := opts.Workdir
+	if len(args) == 0 {
+		args = []string{workdir}
+	}
+
 	ctx := ctxt
 	pm := packmanager.G(ctx)
 	parallel := !config.G[config.KraftKit](ctx).NoParallel
@@ -478,16 +512,23 @@ func (opts *Pull) PullCmd(ctxt context.Context, args []string) error {
 
 	// Force a particular package manager
 	if len(opts.Manager) > 0 && opts.Manager != "auto" {
-		pm, err = pm.From(opts.Manager)
+		pm, err = pm.From(pack.PackageFormat(opts.Manager))
 		if err != nil {
 			return err
 		}
 	}
 
+	type pmQuery struct {
+		pm    packmanager.PackageManager
+		query packmanager.CatalogQuery
+	}
+
+	var queries []pmQuery
+
 	// Are we pulling an application directory?  If so, interpret the application
 	// so we can get a list of components
-	if f, err := os.Stat(query); err == nil && f.IsDir() {
-		workdir = query
+	if f, err := os.Stat(args[0]); err == nil && f.IsDir() {
+		workdir = args[0]
 		project, err := app.NewProjectFromOptions(
 			ctx,
 			app.WithProjectWorkdir(workdir),
@@ -497,11 +538,11 @@ func (opts *Pull) PullCmd(ctxt context.Context, args []string) error {
 			return err
 		}
 
-		if _, err = project.Components(); err != nil {
+		if _, err = project.Components(ctx); err != nil {
 			// Pull the template from the package manager
 			var packages []pack.Package
 			search := processtree.NewProcessTreeItem(
-				fmt.Sprintf("finding %s...",
+				fmt.Sprintf("finding %s",
 					unikraft.TypeNameVersion(project.Template()),
 				), "",
 				func(ctx context.Context) error {
@@ -509,7 +550,7 @@ func (opts *Pull) PullCmd(ctxt context.Context, args []string) error {
 						Name:    project.Template().Name(),
 						Types:   []unikraft.ComponentType{unikraft.ComponentTypeApp},
 						Version: project.Template().Version(),
-						NoCache: opts.NoCache,
+						NoCache: !opts.ForceCache,
 					})
 					if err != nil {
 						return err
@@ -542,7 +583,7 @@ func (opts *Pull) PullCmd(ctxt context.Context, args []string) error {
 			}
 
 			proc := paraprogress.NewProcess(
-				fmt.Sprintf("pulling %s...",
+				fmt.Sprintf("pulling %s",
 					unikraft.TypeNameVersion(packages[0]),
 				),
 				func(ctx context.Context, w func(progress float64)) error {
@@ -594,61 +635,61 @@ func (opts *Pull) PullCmd(ctxt context.Context, args []string) error {
 		}
 
 		// List the components
-		components, err := project.Components()
+		components, err := project.Components(ctx)
 		if err != nil {
 			return err
 		}
 		for _, c := range components {
-			queries = append(queries, packmanager.CatalogQuery{
-				Name:    c.Name(),
-				Version: c.Version(),
-				Source:  c.Source(),
-				Types:   []unikraft.ComponentType{c.Type()},
-				NoCache: opts.NoCache,
+			queries = append(queries, pmQuery{
+				pm: pm,
+				query: packmanager.CatalogQuery{
+					Name:    c.Name(),
+					Version: c.Version(),
+					Source:  c.Source(),
+					Types:   []unikraft.ComponentType{c.Type()},
+					NoCache: !opts.ForceCache,
+				},
 			})
 		}
 
 		// Is this a list (space delimetered) of packages to pull?
-	} else {
-		for _, c := range strings.Split(query, " ") {
-			query := packmanager.CatalogQuery{NoCache: opts.NoCache}
-
-			if t, n, v, err := unikraft.GuessTypeNameVersion(c); err == nil {
-				if t != unikraft.ComponentTypeUnknown {
-					query.Types = append(query.Types, t)
-				}
-
-				if len(n) > 0 {
-					query.Name = n
-				}
-
-				if len(v) > 0 {
-					query.Version = v
-				}
-			} else {
-				query.Source = c
+	} else if len(args) > 0 {
+		for _, arg := range args {
+			pm, compatible, err := pm.IsCompatible(ctx, arg)
+			if err != nil || !compatible {
+				continue
 			}
 
-			queries = append(queries, query)
+			queries = append(queries, pmQuery{
+				pm: pm,
+				query: packmanager.CatalogQuery{
+					NoCache: !opts.ForceCache,
+					Name:    arg,
+				},
+			})
 		}
 	}
 
 	for _, c := range queries {
-		next, err := pm.Catalog(ctx, c)
+		next, err := c.pm.Catalog(ctx, c.query)
 		if err != nil {
-			return err
+			log.G(ctx).
+				WithField("format", pm.Format().String()).
+				WithField("name", c.query.Name).
+				Warn(err)
+			continue
 		}
 
 		if len(next) == 0 {
-			log.G(ctx).Warnf("could not find %s", c.String())
+			log.G(ctx).Warnf("could not find %s", c.query.String())
 			continue
 		}
 
 		for _, p := range next {
 			p := p
 			processes = append(processes, paraprogress.NewProcess(
-				fmt.Sprintf("pulling %s...",
-					unikraft.TypeNameVersion(p),
+				fmt.Sprintf("pulling %s",
+					c.query.String(),
 				),
 				func(ctx context.Context, w func(progress float64)) error {
 					return p.Pull(
@@ -656,7 +697,7 @@ func (opts *Pull) PullCmd(ctxt context.Context, args []string) error {
 						pack.WithPullProgressFunc(w),
 						pack.WithPullWorkdir(workdir),
 						pack.WithPullChecksum(!opts.NoChecksum),
-						pack.WithPullCache(!opts.NoCache),
+						pack.WithPullCache(opts.ForceCache),
 					)
 				},
 			))
@@ -668,7 +709,7 @@ func (opts *Pull) PullCmd(ctxt context.Context, args []string) error {
 		processes,
 		paraprogress.IsParallel(parallel),
 		paraprogress.WithRenderer(norender),
-		paraprogress.WithFailFast(true),
+		paraprogress.WithFailFast(false),
 	)
 	if err != nil {
 		return err
@@ -689,6 +730,7 @@ type Source struct{}
 
 func (opts *Source) SourceCmd(ctxt context.Context, args []string) error {
 	var err error
+	var compatible bool
 
 	source := ""
 	if len(args) > 0 {
@@ -698,9 +740,11 @@ func (opts *Source) SourceCmd(ctxt context.Context, args []string) error {
 	ctx := ctxt
 	pm := packmanager.G(ctx)
 
-	pm, err = pm.IsCompatible(ctx, source)
+	pm, compatible, err = pm.IsCompatible(ctx, source)
 	if err != nil {
 		return err
+	} else if !compatible {
+		return errors.New("incompatible package manager")
 	}
 
 	return pm.AddSource(ctx, source)
@@ -710,6 +754,8 @@ type Unsource struct{}
 
 func (opts *Unsource) UnsourceCmd(ctxt context.Context, args []string) error {
 	var err error
+	var compatible bool
+
 	source := ""
 
 	if len(args) > 0 {
@@ -719,9 +765,11 @@ func (opts *Unsource) UnsourceCmd(ctxt context.Context, args []string) error {
 	ctx := ctxt
 	pm := packmanager.G(ctx)
 
-	pm, err = pm.IsCompatible(ctx, source)
+	pm, compatible, err = pm.IsCompatible(ctx, source)
 	if err != nil {
 		return err
+	} else if !compatible {
+		return errors.New("incompatible package manager")
 	}
 
 	return pm.RemoveSource(ctx, source)
@@ -739,7 +787,7 @@ func (opts *Update) UpdateCmd(ctxt context.Context, args []string) error {
 
 	// Force a particular package manager
 	if len(opts.Manager) > 0 && opts.Manager != "auto" {
-		pm, err = pm.From(opts.Manager)
+		pm, err = pm.From(pack.PackageFormat(opts.Manager))
 		if err != nil {
 			return err
 		}
@@ -829,58 +877,4 @@ func (opts *Set) SetCmd(ctxt context.Context, args []string) error {
 	}
 
 	return project.Set(ctx, nil)
-}
-
-type Unset struct {
-	Workdir string
-}
-
-func (opts *Unset) UnsetCmd(ctxt context.Context, args []string) error {
-	var err error
-
-	ctx := ctxt
-
-	workdir := ""
-	confOpts := []string{}
-
-	// Skip if nothing can be unset
-	if len(args) == 0 {
-		return fmt.Errorf("no options to unset")
-	}
-
-	// Set the working directory
-	if opts.Workdir != "" {
-		workdir = opts.Workdir
-	} else {
-		workdir, err = os.Getwd()
-		if err != nil {
-			return err
-		}
-	}
-
-	for _, arg := range args {
-		confOpts = append(confOpts, arg+"=n")
-	}
-
-	// Check if dotconfig exists in workdir
-	dotconfig := fmt.Sprintf("%s/.config", workdir)
-
-	// Check if the file exists
-	// TODO: offer option to start in interactive mode
-	if _, err := os.Stat(dotconfig); os.IsNotExist(err) {
-		return fmt.Errorf("dotconfig file does not exist: %s", dotconfig)
-	}
-
-	// Initialize at least the configuration options for a project
-	project, err := app.NewProjectFromOptions(
-		ctx,
-		app.WithProjectWorkdir(workdir),
-		// app.WithProjectDefaultConfigPath(),
-		app.WithProjectConfig(confOpts),
-	)
-	if err != nil {
-		return err
-	}
-
-	return project.Unset(ctx, nil)
 }

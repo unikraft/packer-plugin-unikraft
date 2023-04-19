@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 	"kraftkit.sh/cmd/kraft/build"
 	"kraftkit.sh/cmd/kraft/clean"
-	"kraftkit.sh/cmd/kraft/configure"
 	"kraftkit.sh/cmd/kraft/events"
 	"kraftkit.sh/cmd/kraft/fetch"
 	"kraftkit.sh/cmd/kraft/menu"
@@ -21,7 +20,6 @@ import (
 	"kraftkit.sh/cmd/kraft/run"
 	"kraftkit.sh/cmd/kraft/set"
 	"kraftkit.sh/cmd/kraft/stop"
-	"kraftkit.sh/cmd/kraft/unset"
 	"kraftkit.sh/cmdfactory"
 	"kraftkit.sh/config"
 	"kraftkit.sh/manifest"
@@ -59,11 +57,16 @@ func KraftCommandContext() context.Context {
 
 	ctx = config.WithConfigManager(ctx, cfgm)
 
-	command.SetContext(ctx)
+	packmanager.RegisterPackageManager(manifest.ManifestFormat, manifest.NewManifestManager)
+	pm, err := packmanager.NewUmbrellaManager(ctx)
+	if err != nil {
+		panic(err)
+	}
+
+	command.SetContext(packmanager.WithPackageManager(ctx, pm))
 	cmd := cmdfactory.New(&Kraft{}, command)
 	cmd.AddCommand(build.New())
 	cmd.AddCommand(clean.New())
-	cmd.AddCommand(configure.New())
 	cmd.AddCommand(events.New())
 	cmd.AddCommand(fetch.New())
 	cmd.AddCommand(menu.New())
@@ -75,14 +78,8 @@ func KraftCommandContext() context.Context {
 	cmd.AddCommand(run.New())
 	cmd.AddCommand(set.New())
 	cmd.AddCommand(stop.New())
-	cmd.AddCommand(unset.New())
 
 	cmdfactory.AttributeFlags(cmd, cfgm.Config, os.Args...)
 
 	return cmd.Context()
-}
-
-func init() {
-	// Register a new pack.Package type
-	packmanager.RegisterPackageManager(ManifestContext, manifest.NewManifestManager())
 }

@@ -17,6 +17,4 @@ type Driver interface {
 	Update() error
 
 	Set(options map[string]string) error
-
-	Unset(options []string) error
 }

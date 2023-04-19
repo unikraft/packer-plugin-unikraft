@@ -19,6 +19,7 @@ func (d *KraftDriver) Build(path, architecture, platform string) error {
 	c := Build{
 		Architecture: architecture,
 		Platform:     platform,
+		Jobs:         4,
 	}
 	return c.BuildCmd(d.CommandContext, []string{path})
 }
@@ -66,10 +67,4 @@ func (d *KraftDriver) Set(options map[string]string) error {
 	}
 
 	return c.SetCmd(d.CommandContext, opts)
-}
-
-func (d *KraftDriver) Unset(options []string) error {
-	c := Unset{}
-
-	return c.UnsetCmd(d.CommandContext, options)
 }
