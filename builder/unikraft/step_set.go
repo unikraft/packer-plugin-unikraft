@@ -66,7 +66,7 @@ func (s *StepSet) Cleanup(state multistep.StateBag) {
 
 	driver := state.Get("driver").(Driver)
 
-	options := make([]string, 0)
+	options := make(map[string]string, 0)
 	// Split config.Options on ' '
 	for _, option := range strings.Split(config.Options, " ") {
 		// Split option on '='
@@ -76,14 +76,14 @@ func (s *StepSet) Cleanup(state multistep.StateBag) {
 			continue
 		}
 
-		options = append(options, splitOption[0])
+		options[splitOption[0]] = "n"
 	}
 
 	if len(options) == 0 {
 		return
 	}
 
-	err := driver.Unset(options)
+	err := driver.Set(options)
 	if err != nil {
 		err := fmt.Errorf("error encountered setting symbols: %s", err)
 		state.Put("error", err)
