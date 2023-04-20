@@ -24,6 +24,17 @@ func (d *KraftDriver) Build(path, architecture, platform string, fast bool) erro
 	return c.BuildCmd(d.CommandContext, []string{path})
 }
 
+func (d *KraftDriver) Pkg(architecture, platform, pkgType, pkgName, workdir string) error {
+	c := Pkg{
+		Architecture: architecture,
+		Platform:     platform,
+		Format:       pkgType,
+		Name:         pkgName,
+	}
+
+	return c.PkgCmd(d.CommandContext, []string{workdir})
+}
+
 func (d *KraftDriver) ProperClean(path string) error {
 	c := ProperClean{}
 
@@ -36,6 +47,17 @@ func (d *KraftDriver) Pull(source, workdir string) error {
 	}
 
 	return c.PullCmd(d.CommandContext, []string{source})
+}
+
+func (d *KraftDriver) Set(options map[string]string) error {
+	c := Set{}
+	opts := []string{}
+
+	for k, v := range options {
+		opts = append(opts, fmt.Sprintf("%s=%s", k, v))
+	}
+
+	return c.SetCmd(d.CommandContext, opts)
 }
 
 func (d *KraftDriver) Source(source string) error {
@@ -56,15 +78,4 @@ func (d *KraftDriver) Update() error {
 	}
 
 	return c.UpdateCmd(d.CommandContext, []string{})
-}
-
-func (d *KraftDriver) Set(options map[string]string) error {
-	c := Set{}
-	opts := []string{}
-
-	for k, v := range options {
-		opts = append(opts, fmt.Sprintf("%s=%s", k, v))
-	}
-
-	return c.SetCmd(d.CommandContext, opts)
 }
