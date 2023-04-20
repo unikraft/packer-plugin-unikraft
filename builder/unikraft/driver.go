@@ -6,15 +6,17 @@ package unikraft
 type Driver interface {
 	Build(path, architecture, platform string, fast bool) error
 
+	Pkg(architecture, platform, pkgType, pkgName, workdir string) error
+
 	ProperClean(path string) error
 
 	Pull(source, workdir string) error
+
+	Set(options map[string]string) error
 
 	Source(source string) error
 
 	Unsource(source string) error
 
 	Update() error
-
-	Set(options map[string]string) error
 }
