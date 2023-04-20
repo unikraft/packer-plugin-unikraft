@@ -11,6 +11,7 @@ import (
 )
 
 type StepPkgPull struct {
+	KeepConfig bool
 }
 
 // Run calls `kraft pkg pull` with the given repository to pull it locally.
@@ -37,6 +38,8 @@ func (s *StepPkgPull) Run(_ context.Context, state multistep.StateBag) multistep
 		ui.Error(err.Error())
 		return multistep.ActionHalt
 	}
+
+	s.KeepConfig = config.KeepConfig
 
 	return multistep.ActionContinue
 }
@@ -70,6 +73,9 @@ func (s *StepPkgPull) Cleanup(state multistep.StateBag) {
 	for _, file := range files {
 		// If the file is a directory, and it is not the build directory, delete it.
 		if !file.IsDir() || (file.IsDir() && file.Name() != "build" && file.Name() != "fs0") {
+			if s.KeepConfig && (file.Name() == "kraft.yaml" || file.Name() == "kraft.yml" || file.Name() == "Kraftfile") {
+				continue
+			}
 			err := os.RemoveAll(filepath.Join(buildDir, file.Name()))
 			if err != nil {
 				err := fmt.Errorf("error encountered removing directory: %s", err)

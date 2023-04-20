@@ -40,6 +40,8 @@ type Config struct {
 	SourcesNoDefault bool `mapstructure:"sources_no_default"`
 	// Set of options to set.
 	Options string `mapstructure:"options"`
+	// Keep the specification of the build.
+	KeepConfig bool `mapstructure:"keep_config"`
 
 	ctx interpolate.Context
 }

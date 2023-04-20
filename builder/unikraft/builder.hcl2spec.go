@@ -30,6 +30,7 @@ type FlatConfig struct {
 	Sources             []string          `mapstructure:"sources" cty:"sources" hcl:"sources"`
 	SourcesNoDefault    *bool             `mapstructure:"sources_no_default" cty:"sources_no_default" hcl:"sources_no_default"`
 	Options             *string           `mapstructure:"options" cty:"options" hcl:"options"`
+	KeepConfig          *bool             `mapstructure:"keep_config" cty:"keep_config" hcl:"keep_config"`
 }
 
 // FlatMapstructure returns a new FlatConfig.
@@ -64,6 +65,7 @@ func (*FlatConfig) HCL2Spec() map[string]hcldec.Spec {
 		"sources":                    &hcldec.AttrSpec{Name: "sources", Type: cty.List(cty.String), Required: false},
 		"sources_no_default":         &hcldec.AttrSpec{Name: "sources_no_default", Type: cty.Bool, Required: false},
 		"options":                    &hcldec.AttrSpec{Name: "options", Type: cty.String, Required: false},
+		"keep_config":                &hcldec.AttrSpec{Name: "keep_config", Type: cty.Bool, Required: false},
 	}
 	return s
 }
