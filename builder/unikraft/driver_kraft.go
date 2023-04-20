@@ -15,11 +15,11 @@ type KraftDriver struct {
 	CommandContext context.Context
 }
 
-func (d *KraftDriver) Build(path, architecture, platform string) error {
+func (d *KraftDriver) Build(path, architecture, platform string, fast bool) error {
 	c := Build{
 		Architecture: architecture,
 		Platform:     platform,
-		Jobs:         4,
+		Fast:         fast,
 	}
 	return c.BuildCmd(d.CommandContext, []string{path})
 }
