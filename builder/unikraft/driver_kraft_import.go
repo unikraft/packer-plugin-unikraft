@@ -446,6 +446,156 @@ func (opts *Build) BuildCmd(ctxt context.Context, args []string) error {
 	return paramodel.Start()
 }
 
+type Pkg struct {
+	Architecture string
+	Dbg          bool
+	Force        bool
+	Format       string
+	Initrd       string
+	Kernel       string
+	Name         string
+	Output       string
+	Platform     string
+	Target       string
+	Volumes      []string
+	WithKConfig  bool
+}
+
+func (opts *Pkg) PkgCmd(ctxt context.Context, args []string) error {
+	var err error
+	var workdir string
+
+	if len(args) == 0 {
+		workdir, err = os.Getwd()
+		if err != nil {
+			return err
+		}
+	} else {
+		workdir = args[0]
+	}
+
+	ctx := ctxt
+
+	// Interpret the project directory
+	project, err := app.NewProjectFromOptions(
+		ctx,
+		app.WithProjectWorkdir(workdir),
+		app.WithProjectDefaultKraftfiles(),
+	)
+	if err != nil {
+		return err
+	}
+
+	var tree []*processtree.ProcessTreeItem
+
+	parallel := !config.G[config.KraftKit](ctx).NoParallel
+	norender := log.LoggerTypeFromString(config.G[config.KraftKit](ctx).Log.Type) != log.FANCY
+
+	// Generate a package for every matching requested target
+	for _, targ := range project.Targets() {
+		// See: https://github.com/golang/go/wiki/CommonMistakes#using-reference-to-loop-iterator-variable
+		targ := targ
+
+		switch true {
+		case
+			// If no arguments are supplied
+			len(opts.Target) == 0 &&
+				len(opts.Architecture) == 0 &&
+				len(opts.Platform) == 0,
+
+			// If the --target flag is supplied and the target name match
+			len(opts.Target) > 0 &&
+				targ.Name() == opts.Target,
+
+			// If only the --arch flag is supplied and the target's arch matches
+			len(opts.Architecture) > 0 &&
+				len(opts.Platform) == 0 &&
+				targ.Architecture().Name() == opts.Architecture,
+
+			// If only the --plat flag is supplied and the target's platform matches
+			len(opts.Platform) > 0 &&
+				len(opts.Architecture) == 0 &&
+				targ.Platform().Name() == opts.Platform,
+
+			// If both the --arch and --plat flag are supplied and match the target
+			len(opts.Platform) > 0 &&
+				len(opts.Architecture) > 0 &&
+				targ.Architecture().Name() == opts.Architecture &&
+				targ.Platform().Name() == opts.Platform:
+
+			var format pack.PackageFormat
+			name := "packaging " + targ.Name()
+			if opts.Format != "auto" {
+				format = pack.PackageFormat(opts.Format)
+			} else if targ.Format().String() != "" {
+				format = targ.Format()
+			}
+			if format.String() != "auto" {
+				name += " (" + format.String() + ")"
+			}
+
+			tree = append(tree, processtree.NewProcessTreeItem(
+				name,
+				targ.Architecture().Name()+"/"+targ.Platform().Name(),
+				func(ctx context.Context) error {
+					var err error
+					pm := packmanager.G(ctx)
+
+					// Switch the package manager the desired format for this target
+					if format != "auto" {
+						pm, err = pm.From(format)
+						if err != nil {
+							return err
+						}
+					}
+
+					popts := []packmanager.PackOption{
+						packmanager.PackKConfig(opts.WithKConfig),
+						packmanager.PackOutput(opts.Output),
+						packmanager.PackInitrd(opts.Initrd),
+					}
+
+					if ukversion, ok := targ.KConfig().Get(unikraft.UK_FULLVERSION); ok {
+						popts = append(popts,
+							packmanager.PackWithKernelVersion(ukversion.Value),
+						)
+					}
+
+					if _, err := pm.Pack(ctx, targ, popts...); err != nil {
+						return err
+					}
+
+					return nil
+				},
+			))
+
+		default:
+			continue
+		}
+	}
+
+	model, err := processtree.NewProcessTree(
+		ctx,
+		[]processtree.ProcessTreeOption{
+			processtree.IsParallel(parallel),
+			processtree.WithRenderer(norender),
+		},
+		tree...,
+	)
+	if err != nil {
+		return err
+	}
+
+	// f, err := os.OpenFile("/tmp/kraft.log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+	// if err != nil {
+	// 	return err
+	// }
+	// f.Write([]byte(fmt.Sprintf("%#v\n", opts)))
+	// f.Close()
+
+	return model.Start()
+}
+
 type ProperClean struct{}
 
 func (opts *ProperClean) ProperCleanCmd(ctxt context.Context, args []string) error {
