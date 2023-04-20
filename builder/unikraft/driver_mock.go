@@ -6,6 +6,11 @@ type MockDriver struct {
 	BuildArchitecture string
 	BuildPlatform     string
 
+	PkgCalled       bool
+	PkgType         string
+	PkgArchitecture string
+	PkgPlatform     string
+
 	ProperCleanCalled bool
 	ProperCleanPath   string
 
@@ -33,6 +38,14 @@ func (d *MockDriver) Build(path, architecture, platform string) error {
 	d.BuildPath = path
 	d.BuildArchitecture = architecture
 	d.BuildPlatform = platform
+	return nil
+}
+
+func (d *MockDriver) Pkg(architecture, platform, pkgType, pkgName string) error {
+	d.PkgArchitecture = architecture
+	d.PkgPlatform = platform
+	d.PkgCalled = true
+	d.PkgType = pkgType
 	return nil
 }
 
@@ -69,11 +82,5 @@ func (d *MockDriver) Update() error {
 func (d *MockDriver) Set(options map[string]string) error {
 	d.SetCalled = true
 	d.SetOptions = options
-	return nil
-}
-
-func (d *MockDriver) Unset(options []string) error {
-	d.UnsetCalled = true
-	d.UnsetOptions = options
 	return nil
 }

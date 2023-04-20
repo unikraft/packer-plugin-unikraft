@@ -23,6 +23,7 @@ import (
 	"kraftkit.sh/cmdfactory"
 	"kraftkit.sh/config"
 	"kraftkit.sh/manifest"
+	"kraftkit.sh/oci"
 	"kraftkit.sh/pack"
 	"kraftkit.sh/packmanager"
 )
@@ -58,6 +59,7 @@ func KraftCommandContext() context.Context {
 	ctx = config.WithConfigManager(ctx, cfgm)
 
 	packmanager.RegisterPackageManager(manifest.ManifestFormat, manifest.NewManifestManager)
+	packmanager.RegisterPackageManager(oci.OCIFormat, oci.NewOCIManager)
 	pm, err := packmanager.NewUmbrellaManager(ctx)
 	if err != nil {
 		panic(err)
