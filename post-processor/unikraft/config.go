@@ -23,6 +23,10 @@ type Config struct {
 	FileSource string `mapstructure:"source"`
 	// The path to the formatted files.
 	FileDestination string `mapstructure:"destination"`
+	// The architecture of the unikernel.
+	Architecture string `mapstructure:"architecture"`
+	// The platform of the unikernel.
+	Platform string `mapstructure:"platform"`
 
 	ctx interpolate.Context
 }
@@ -54,8 +58,8 @@ func (c *Config) Prepare(raws ...interface{}) ([]string, error) {
 		errs = packer.MultiErrorAppend(errs, fmt.Errorf("file destination must be specified"))
 	}
 
-	if c.Type == "" || c.Type != "cpio" {
-		errs = packer.MultiErrorAppend(errs, fmt.Errorf("archive type must be specified"))
+	if c.Type == "" || (c.Type != "cpio" && c.Type != "oci") {
+		errs = packer.MultiErrorAppend(errs, fmt.Errorf("package type must be specified"))
 	}
 
 	if errs != nil && len(errs.Errors) > 0 {
