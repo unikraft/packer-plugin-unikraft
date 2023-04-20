@@ -16,7 +16,7 @@ Type: `unikraft`
 -->
 
 The unikraft post-processor is used currently to create the file system for already-built images.
-The post-processor will also be able to pack the image in different formats, as OCI.
+The post-processor can both create cpio archives, and OCI images.
 
 
 <!-- Post-Processor Configuration Fields -->
@@ -62,6 +62,12 @@ build {
     type   = "cpio"
     source = "/tmp/test/.unikraft/apps/helloworld/fs0"
     destination = "/tmp/test/.unikraft/apps/helloworld/build/initramfs.cpio"
+  }
+
+  post-processor "unikraft-post-processor" {
+    type   = "oci"
+    source = "/tmp/test/.unikraft/apps/helloworld"
+    destination = "my-registry.io/helloworld:latest"
   }
 }
 ```
