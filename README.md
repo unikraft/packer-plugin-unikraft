@@ -1,68 +1,63 @@
 # Packer Plugin Unikraft
+The `Unikraft` multi-component plugin can be used with HashiCorp [Packer](https://www.packer.io)
+to create custom images. For the full list of available features for this plugin see [docs](docs).
 
-This repository is a unikraft implementation for a Packer multi-component plugin. The plugin contains the following components:
-- A builder ([builder/unikraft](builder/unikraft))
-- A post-processor ([post-processor/unikraft](post-processor/unikraft))
-- A working example ([example](example))
-- Docs ([docs](docs))
+## Installation
 
-Currently stubbed components:
-- A data source ([datasource/unikraft](datasource/unikraft))
+### Using pre-built releases
 
-Components not contained in the implementation:
-- A provisioner ([provisioner/unikraft](provisioner/unikraft))
+#### Using the `packer init` command
 
-## Running Acceptance Tests
+Starting from version 1.7, Packer supports a new `packer init` command allowing
+automatic installation of Packer plugins. Read the
+[Packer documentation](https://www.packer.io/docs/commands/init) for more information.
 
-First install the plugin using `go build .`.
-Then source the built binary to the plugin path with `cp packer-plugin-unikraft ~/.packer.d/plugins/packer-plugin-unikraft`.
-Once everything needed is set up, run:
-```
-PACKER_ACC=1 go test -count 1 -v ./... -timeout=120m
-```
+To install this plugin, copy and paste this code into your Packer configuration .
+Then, run [`packer init`](https://www.packer.io/docs/commands/init).
 
-This will run the acceptance tests for all plugins in this set.
-
-**The plugin does not currently have tests included, so the acceptance tests will always pass.**
-
-**Note: The post processor template example requires an already existing `fs0` directory, as it's missing in the `app-helloworld` repository.**
-
-## Registering Documentation on Packer.io - TODO
-
-Documentation for a plugin is maintained within the `docs` directory and served on GitHub.
-To include plugin docs on Packer.io a global pre-hook has been added to the main scaffolding .goreleaser.yml file, that if uncommented will generate and include a docs.zip file as part of the plugin release.
-
-The `docs.zip` file will contain all of the `.mdx` files under the plugins root `docs/` directory that can be consumed remotely by Packer.io.
-
-Once the first `docs.zip` file has been included into a release you will need to open a one time pull-request against [hashicorp/packer](https://github.com/hashicorp/packer) to register the plugin docs.
-This is done by adding the block below for the respective plugin to the file [website/data/docs-remote-navigation.js](https://github.com/hashicorp/packer/blob/master/website/data/docs-remote-plugins.json).
-
-```json
-{
-   "title": "Unikraft",
-   "path": "unikraft",
-   "repo": "unikraft-io/packer-plugin-unikraft",
-   "version": "latest",
-   "sourceBranch": "main"
- }
+```hcl
+packer {
+  required_plugins {
+    unikraft = {
+      version = ">= 0.1.0"
+      source  = "github.com/unikraft/packer-plugin-unikraft"
+    }
+  }
+}
 ```
 
-If a plugin maintainer wishes to only include a specific version of released docs then the `"version"` key in the above configuration should be set to a released version of the plugin. Otherwise it should be set to `"latest"`.
 
-The `"sourceBranch"` key in the above configuration ensures potential contributors can link back to source files in the plugin repository from the Packer docs site. If a `"sourceBranch"` value is not present, it will default to `"main"`.
+#### Manual installation
 
-The documentation structure needed for Packer.io can be generated manually, by creating a simple zip file called `docs.zip` of the docs directory and included in the plugin release.
+You can find pre-built binary releases of the plugin [here](https://github.com/unikraft/packer-plugin-unikraft/releases).
+Once you have downloaded the latest archive corresponding to your target OS,
+uncompress it to retrieve the plugin binary file corresponding to your platform.
+To install the plugin, please follow the Packer documentation on
+[installing a plugin](https://www.packer.io/docs/extending/plugins/#installing-plugins).
 
-```/bin/bash
-[[ -d docs/ ]] && zip -r docs.zip docs/
-```
 
-Once the first `docs.zip` file has been included into a release you will need to open a one time pull-request against [hashicorp/packer](https://github.com/hashicorp/packer) to register the plugin docs.
+### From Sources
 
-# Requirements
+If you prefer to build the plugin from sources, clone the GitHub repository
+locally and run the command `go build` from the root
+directory. Upon successful compilation, a `packer-plugin-unikraft` plugin
+binary file can be found in the root directory.
+To install the compiled plugin, please follow the official Packer documentation
+on [installing a plugin](https://www.packer.io/docs/extending/plugins/#installing-plugins).
 
--	[packer-plugin-sdk](https://github.com/hashicorp/packer-plugin-sdk) >= v0.3.2
--	[Go](https://golang.org/doc/install) >= 1.18
 
-## Packer Compatibility
-This plugin is compatible with Packer >= v1.7.0
+### Configuration
+
+For more information on how to configure the plugin, please read the
+documentation located in the [`docs/`](docs) directory.
+
+
+## Contributing
+
+* If you think you've found a bug in the code or you have a question regarding
+  the usage of this software, please reach out to us by opening an issue in
+  this GitHub repository.
+* Contributions to this project are welcome: if you want to add a feature or a
+  fix a bug, please do so by opening a Pull Request in this GitHub repository.
+  In case of feature contribution, we kindly ask you to open an issue to
+  discuss it beforehand.
