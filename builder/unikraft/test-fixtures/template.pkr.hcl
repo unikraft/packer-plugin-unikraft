@@ -1,14 +1,24 @@
 source "unikraft-builder" "example" {
+  // Platform of the resulting binaries
   architecture = "x86_64"
-  platform = "kvm"
-  build_path = "/tmp/test/.unikraft/apps/helloworld"
-  workdir = "/tmp/test"
-  pull_source = "helloworld"
-  sources_no_default = false
-  sources = [ "https://github.com/unikraft/app-helloworld",
-              "https://github.com/unikraft/app-redis"
-  ]
 
+  // Platform of the resulting binaries
+  platform = "kvm"
+
+  # Path of the resulting binaries
+  build_path = "/tmp/test/.unikraft/apps/helloworld"
+  
+  // Path where to pull the sources and build the binaries
+  workdir = "/tmp/test"
+
+  // Application to pull and build
+  pull_source = "helloworld"
+
+  // If to use the default source manifests
+  sources_no_default = true
+
+  // Additional sources to pull
+  sources = [ "https://github.com/unikraft/app-helloworld.git" ]
 }
 
 build {
