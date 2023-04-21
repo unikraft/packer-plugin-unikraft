@@ -1,0 +1,56 @@
+---
+description: >
+  The Packer Unikraft post-processor takes an artifact from the Unikraft builder and packages it into different formats.
+  This allows you to export the resulting binary in different formats (e.g. OCI).
+page_title: Unikraft - Post-Processors
+nav_title: Unikraft
+---
+
+# Unikraft Post-Processor
+
+Type: `unikraft`
+
+The Packer Unikraft post-processor takes an artifact from the [Unikraft builder](/packer/plugins/builders/unikraft) and packages it into different formats.
+This allows you to export the resulting binary in different formats (e.g. OCI).
+
+### Required
+
+- `type` (string) - The type of the packaging format to export.
+  Can be either `oci` or `cpio`.
+- `source` (string) - The source directory to create the archive from.
+  If `oci`, the source directory must contain a `kraft.yaml` file.
+  If `cpio`, the source directory must be a valid `fs0` directory. 
+- `destination` (string) - The resulting package file.
+  If `oci`, the `destination` must be a valid OCI image name.
+  If `cpio`, the `destination` must be a valid file path.
+- `architecture` (string) - The architecture of the packaged image.
+  If `oci`, the `architecture` is required.
+  If `cpio`, the `architecture` is optional.
+- `platform` (string) - The platform of the packaged image.
+  If `oci`, the `platform` is required.
+  If `cpio`, the `platform` is optional.
+
+### Example Usage
+
+<Tabs>
+<Tab title="HCL2 - CPIO">
+```hcl
+post-processor "kraft-pkg" {
+  type   = "cpio"
+  source = "/tmp/example/.unikraft/apps/helloworld/fs0"
+  destination = "/tmp/example/.unikraft/apps/helloworld/build/initramfs.cpio"
+}
+```
+</Tab>
+<Tab title="HCL2 - OCI">
+```hcl
+post-processor "kraft-pkg" {
+  type   = "oci"
+  source = "/tmp/example/.unikraft/apps/helloworld"
+  destination = "my-registry.io/helloworld:latest"
+  architecture = "x86_64"
+  platform = "kvm"
+}
+```
+</Tab>
+</Tabs>
