@@ -19,10 +19,10 @@ import (
 	"kraftkit.sh/make"
 	"kraftkit.sh/pack"
 	"kraftkit.sh/packmanager"
-	"kraftkit.sh/tui/paraprogress"
-	"kraftkit.sh/tui/processtree"
 	"kraftkit.sh/unikraft"
 	"kraftkit.sh/unikraft/app"
+	"kraftkit.sh/unikraft/arch"
+	"kraftkit.sh/unikraft/plat"
 	"kraftkit.sh/unikraft/target"
 )
 
@@ -120,7 +120,6 @@ func (opts *Build) BuildCmd(ctxt context.Context, args []string) error {
 		return fmt.Errorf("cannot build uninitialized project! start with: ukbuild init")
 	}
 
-	parallel := !config.G[config.KraftKit](ctx).NoParallel
 	norender := log.LoggerTypeFromString(config.G[config.KraftKit](ctx).Log.Type) != log.FANCY
 	nameWidth := -1
 
@@ -140,112 +139,6 @@ func (opts *Build) BuildCmd(ctxt context.Context, args []string) error {
 	}
 
 	var missingPacks []pack.Package
-	var processes []*paraprogress.Process
-	var searches []*processtree.ProcessTreeItem
-
-	_, err = project.Components(ctx)
-	if err != nil && project.Template().Name() != "" {
-		var packages []pack.Package
-		search := processtree.NewProcessTreeItem(
-			fmt.Sprintf("finding %s",
-				unikraft.TypeNameVersion(project.Template()),
-			), "",
-			func(ctx context.Context) error {
-				packages, err = packmanager.G(ctx).Catalog(ctx, packmanager.CatalogQuery{
-					Name:    project.Template().Name(),
-					Types:   []unikraft.ComponentType{unikraft.ComponentTypeApp},
-					Version: project.Template().Version(),
-					NoCache: opts.NoCache,
-				})
-				if err != nil {
-					return err
-				}
-
-				if len(packages) == 0 {
-					return fmt.Errorf("could not find: %s",
-						unikraft.TypeNameVersion(project.Template()),
-					)
-				} else if len(packages) > 1 {
-					return fmt.Errorf("too many options for %s",
-						unikraft.TypeNameVersion(project.Template()),
-					)
-				}
-
-				return nil
-			},
-		)
-
-		treemodel, err := processtree.NewProcessTree(
-			ctx,
-			[]processtree.ProcessTreeOption{
-				processtree.IsParallel(parallel),
-				processtree.WithRenderer(norender),
-				processtree.WithFailFast(true),
-			},
-			search,
-		)
-		if err != nil {
-			return err
-		}
-
-		if err := treemodel.Start(); err != nil {
-			return fmt.Errorf("could not complete search: %v", err)
-		}
-
-		proc := paraprogress.NewProcess(
-			fmt.Sprintf("pulling %s",
-				unikraft.TypeNameVersion(packages[0]),
-			),
-			func(ctx context.Context, w func(progress float64)) error {
-				return packages[0].Pull(
-					ctx,
-					pack.WithPullProgressFunc(w),
-					pack.WithPullWorkdir(workdir),
-					// pack.WithPullChecksum(!opts.NoChecksum),
-					pack.WithPullCache(!opts.NoCache),
-				)
-			},
-		)
-
-		processes = append(processes, proc)
-
-		paramodel, err := paraprogress.NewParaProgress(
-			ctx,
-			processes,
-			paraprogress.IsParallel(parallel),
-			paraprogress.WithRenderer(norender),
-			paraprogress.WithFailFast(true),
-			paraprogress.WithNameWidth(nameWidth),
-		)
-		if err != nil {
-			return err
-		}
-
-		if err := paramodel.Start(); err != nil {
-			return fmt.Errorf("could not pull all components: %v", err)
-		}
-	}
-
-	if project.Template().Name() != "" {
-		templateWorkdir, err := unikraft.PlaceComponent(workdir, project.Template().Type(), project.Template().Name())
-		if err != nil {
-			return err
-		}
-
-		templateProject, err := app.NewProjectFromOptions(
-			ctx,
-			app.WithProjectWorkdir(templateWorkdir),
-			app.WithProjectDefaultKraftfiles(),
-		)
-		if err != nil {
-			return err
-		}
-
-		project, err = templateProject.MergeTemplate(ctx, project)
-		if err != nil {
-			return err
-		}
-	}
 
 	// Overwrite template with user options
 	components, err := project.Components(ctx)
@@ -255,96 +148,43 @@ func (opts *Build) BuildCmd(ctxt context.Context, args []string) error {
 	for _, component := range components {
 		component := component // loop closure
 
-		searches = append(searches, processtree.NewProcessTreeItem(
-			fmt.Sprintf("finding %s",
-				unikraft.TypeNameVersion(component),
-			), "",
-			func(ctx context.Context) error {
-				p, err := packmanager.G(ctx).Catalog(ctx, packmanager.CatalogQuery{
-					Name: component.Name(),
-					Types: []unikraft.ComponentType{
-						component.Type(),
-					},
-					Version: component.Version(),
-					Source:  component.Source(),
-					NoCache: opts.NoCache,
-				})
-				if err != nil {
-					return err
-				}
-
-				if len(p) == 0 {
-					return fmt.Errorf("could not find: %s",
-						unikraft.TypeNameVersion(component),
-					)
-				} else if len(p) > 1 {
-					return fmt.Errorf("too many options for %s",
-						unikraft.TypeNameVersion(component),
-					)
-				}
-
-				missingPacks = append(missingPacks, p...)
-				return nil
+		p, err := packmanager.G(ctx).Catalog(ctx, packmanager.CatalogQuery{
+			Name: component.Name(),
+			Types: []unikraft.ComponentType{
+				component.Type(),
 			},
-		))
-	}
-
-	if len(searches) > 0 {
-		treemodel, err := processtree.NewProcessTree(
-			ctx,
-			[]processtree.ProcessTreeOption{
-				processtree.IsParallel(parallel),
-				processtree.WithRenderer(norender),
-				processtree.WithFailFast(true),
-			},
-			searches...,
-		)
+			Version: component.Version(),
+			Source:  component.Source(),
+			NoCache: opts.NoCache,
+		})
 		if err != nil {
 			return err
 		}
 
-		if err := treemodel.Start(); err != nil {
-			return fmt.Errorf("could not complete search: %v", err)
+		if len(p) == 0 {
+			return fmt.Errorf("could not find: %s",
+				unikraft.TypeNameVersion(component),
+			)
+		} else if len(p) > 1 {
+			return fmt.Errorf("too many options for %s",
+				unikraft.TypeNameVersion(component),
+			)
 		}
+
+		missingPacks = append(missingPacks, p...)
 	}
 
 	if len(missingPacks) > 0 {
 		for _, p := range missingPacks {
 			p := p // loop closure
-			processes = append(processes, paraprogress.NewProcess(
-				fmt.Sprintf("pulling %s",
-					unikraft.TypeNameVersion(p),
-				),
-				func(ctx context.Context, w func(progress float64)) error {
-					return p.Pull(
-						ctx,
-						pack.WithPullProgressFunc(w),
-						pack.WithPullWorkdir(workdir),
-						// pack.WithPullChecksum(!opts.NoChecksum),
-						pack.WithPullCache(!opts.NoCache),
-					)
-				},
-			))
-		}
-
-		paramodel, err := paraprogress.NewParaProgress(
-			ctx,
-			processes,
-			paraprogress.IsParallel(parallel),
-			paraprogress.WithRenderer(norender),
-			paraprogress.WithFailFast(true),
-			paraprogress.WithNameWidth(nameWidth),
-		)
-		if err != nil {
-			return err
-		}
-
-		if err := paramodel.Start(); err != nil {
-			return fmt.Errorf("could not pull all components: %v", err)
+			p.Pull(
+				ctx,
+				pack.WithPullWorkdir(workdir),
+				// pack.WithPullChecksum(!opts.NoChecksum),
+				pack.WithPullCache(!opts.NoCache),
+			)
 		}
 	}
-
-	processes = []*paraprogress.Process{} // reset
 
 	// Filter project targets by any provided CLI options
 	selected := FilterTargets(
@@ -369,81 +209,46 @@ func (opts *Build) BuildCmd(ctxt context.Context, args []string) error {
 		// See: https://github.com/golang/go/wiki/CommonMistakes#using-reference-to-loop-iterator-variable
 		targ := targ
 		if !opts.NoConfigure {
-			processes = append(processes, paraprogress.NewProcess(
-				fmt.Sprintf("configuring %s (%s)", targ.Name(), target.TargetPlatArchName(targ)),
-				func(ctx context.Context, w func(progress float64)) error {
-					return project.Configure(
-						ctx,
-						targ, // Target-specific options
-						nil,  // No extra configuration options
-						make.WithProgressFunc(w),
-						make.WithSilent(true),
-						make.WithExecOptions(
-							exec.WithStdin(iostreams.G(ctx).In),
-							exec.WithStdout(log.G(ctx).Writer()),
-							exec.WithStderr(log.G(ctx).WriterLevel(logrus.ErrorLevel)),
-						),
-					)
-				},
-			))
+			project.Configure(
+				ctx,
+				targ, // Target-specific options
+				nil,  // No extra configuration options
+				make.WithSilent(true),
+				make.WithExecOptions(
+					exec.WithStdin(iostreams.G(ctx).In),
+					exec.WithStdout(log.G(ctx).Writer()),
+					exec.WithStderr(log.G(ctx).WriterLevel(logrus.ErrorLevel)),
+				))
 		}
 
 		if !opts.NoPrepare {
-			processes = append(processes, paraprogress.NewProcess(
-				fmt.Sprintf("preparing %s (%s)", targ.Name(), target.TargetPlatArchName(targ)),
-				func(ctx context.Context, w func(progress float64)) error {
-					return project.Prepare(
-						ctx,
-						targ, // Target-specific options
-						append(
-							mopts,
-							make.WithProgressFunc(w),
-							make.WithExecOptions(
-								exec.WithStdout(log.G(ctx).Writer()),
-								exec.WithStderr(log.G(ctx).WriterLevel(logrus.ErrorLevel)),
-							),
-						)...,
-					)
-				},
-			))
+			project.Prepare(
+				ctx,
+				targ, // Target-specific options
+				append(
+					mopts,
+					make.WithExecOptions(
+						exec.WithStdout(log.G(ctx).Writer()),
+						exec.WithStderr(log.G(ctx).WriterLevel(logrus.ErrorLevel)),
+					),
+				)...,
+			)
 		}
 
-		processes = append(processes, paraprogress.NewProcess(
-			fmt.Sprintf("building %s (%s)", targ.Name(), target.TargetPlatArchName(targ)),
-			func(ctx context.Context, w func(progress float64)) error {
-				return project.Build(
-					ctx,
-					targ, // Target-specific options
-					app.WithBuildProgressFunc(w),
-					app.WithBuildMakeOptions(append(mopts,
-						make.WithExecOptions(
-							exec.WithStdout(log.G(ctx).Writer()),
-							exec.WithStderr(log.G(ctx).WriterLevel(logrus.ErrorLevel)),
-						),
-					)...),
-					app.WithBuildLogFile(opts.SaveBuildLog),
-				)
-			},
-		))
+		project.Build(
+			ctx,
+			targ, // Target-specific options
+			app.WithBuildMakeOptions(append(mopts,
+				make.WithExecOptions(
+					exec.WithStdout(log.G(ctx).Writer()),
+					exec.WithStderr(log.G(ctx).WriterLevel(logrus.ErrorLevel)),
+				),
+			)...),
+			app.WithBuildLogFile(opts.SaveBuildLog),
+		)
 	}
 
-	paramodel, err := paraprogress.NewParaProgress(
-		ctx,
-		processes,
-		// Disable parallelization as:
-		//  - The first process may be pulling the container image, which is
-		//    necessary for the subsequent build steps;
-		//  - The Unikraft build system can re-use compiled files from previous
-		//    compilations (if the architecture does not change).
-		paraprogress.IsParallel(false),
-		paraprogress.WithRenderer(norender),
-		paraprogress.WithFailFast(true),
-	)
-	if err != nil {
-		return err
-	}
-
-	return paramodel.Start()
+	return nil
 }
 
 type Pkg struct {
@@ -485,11 +290,6 @@ func (opts *Pkg) PkgCmd(ctxt context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-
-	var tree []*processtree.ProcessTreeItem
-
-	parallel := !config.G[config.KraftKit](ctx).NoParallel
-	norender := log.LoggerTypeFromString(config.G[config.KraftKit](ctx).Log.Type) != log.FANCY
 
 	// Generate a package for every matching requested target
 	for _, targ := range project.Targets() {
@@ -534,32 +334,28 @@ func (opts *Pkg) PkgCmd(ctxt context.Context, args []string) error {
 				name += " (" + format.String() + ")"
 			}
 
-			tree = append(tree, processtree.NewProcessTreeItem(
-				name,
-				targ.Architecture().Name()+"/"+targ.Platform().Name(),
-				func(ctx context.Context) error {
-					var err error
-					pm := packmanager.G(ctx)
+			var err error
+			pm := packmanager.G(ctx)
 
-					// Switch the package manager the desired format for this target
-					if format != "auto" {
-						pm, err = pm.From(format)
-						if err != nil {
-							return err
-						}
-					}
+			// Switch the package manager the desired format for this target
+			if format != "auto" {
+				pm, err = pm.From(format)
+				if err != nil {
+					return err
+				}
+			}
 
-					popts := []packmanager.PackOption{
-						packmanager.PackKConfig(opts.WithKConfig),
-						packmanager.PackOutput(opts.Output),
-						packmanager.PackInitrd(opts.Initrd),
-					}
+			popts := []packmanager.PackOption{
+				packmanager.PackKConfig(opts.WithKConfig),
+				packmanager.PackOutput(opts.Output),
+				packmanager.PackInitrd(opts.Initrd),
+			}
 
-					if ukversion, ok := targ.KConfig().Get(unikraft.UK_FULLVERSION); ok {
-						popts = append(popts,
-							packmanager.PackWithKernelVersion(ukversion.Value),
-						)
-					}
+			if ukversion, ok := targ.KConfig().Get(unikraft.UK_FULLVERSION); ok {
+				popts = append(popts,
+					packmanager.PackWithKernelVersion(ukversion.Value),
+				)
+			}
 
 			targWithName, err := target.NewTargetFromOptions(
 				target.WithName(opts.Name),
@@ -584,26 +380,7 @@ func (opts *Pkg) PkgCmd(ctxt context.Context, args []string) error {
 		}
 	}
 
-	model, err := processtree.NewProcessTree(
-		ctx,
-		[]processtree.ProcessTreeOption{
-			processtree.IsParallel(parallel),
-			processtree.WithRenderer(norender),
-		},
-		tree...,
-	)
-	if err != nil {
-		return err
-	}
-
-	// f, err := os.OpenFile("/tmp/kraft.log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
-	// if err != nil {
-	// 	return err
-	// }
-	// f.Write([]byte(fmt.Sprintf("%#v\n", opts)))
-	// f.Close()
-
-	return model.Start()
+	return nil
 }
 
 type ProperClean struct{}
@@ -650,8 +427,6 @@ type Pull struct {
 
 func (opts *Pull) PullCmd(ctxt context.Context, args []string) error {
 	var err error
-	var project app.Application
-	var processes []*paraprogress.Process
 
 	workdir := opts.Workdir
 	if len(workdir) == 0 {
@@ -667,8 +442,6 @@ func (opts *Pull) PullCmd(ctxt context.Context, args []string) error {
 
 	ctx := ctxt
 	pm := packmanager.G(ctx)
-	parallel := !config.G[config.KraftKit](ctx).NoParallel
-	norender := log.LoggerTypeFromString(config.G[config.KraftKit](ctx).Log.Type) != log.FANCY
 
 	// Force a particular package manager
 	if len(opts.Manager) > 0 && opts.Manager != "auto" {
@@ -701,78 +474,28 @@ func (opts *Pull) PullCmd(ctxt context.Context, args []string) error {
 		if _, err = project.Components(ctx); err != nil {
 			// Pull the template from the package manager
 			var packages []pack.Package
-			search := processtree.NewProcessTreeItem(
-				fmt.Sprintf("finding %s",
-					unikraft.TypeNameVersion(project.Template()),
-				), "",
-				func(ctx context.Context) error {
-					packages, err = pm.Catalog(ctx, packmanager.CatalogQuery{
-						Name:    project.Template().Name(),
-						Types:   []unikraft.ComponentType{unikraft.ComponentTypeApp},
-						Version: project.Template().Version(),
-						NoCache: !opts.ForceCache,
-					})
-					if err != nil {
-						return err
-					}
-
-					if len(packages) == 0 {
-						return fmt.Errorf("could not find: %s", unikraft.TypeNameVersion(project.Template()))
-					} else if len(packages) > 1 {
-						return fmt.Errorf("too many options for %s", unikraft.TypeNameVersion(project.Template()))
-					}
-					return nil
-				},
-			)
-
-			treemodel, err := processtree.NewProcessTree(
-				ctx,
-				[]processtree.ProcessTreeOption{
-					processtree.IsParallel(parallel),
-					processtree.WithRenderer(norender),
-					processtree.WithFailFast(true),
-				},
-				[]*processtree.ProcessTreeItem{search}...,
-			)
+			packages, err = pm.Catalog(ctx, packmanager.CatalogQuery{
+				Name:    project.Template().Name(),
+				Types:   []unikraft.ComponentType{unikraft.ComponentTypeApp},
+				Version: project.Template().Version(),
+				NoCache: !opts.ForceCache,
+			})
 			if err != nil {
 				return err
 			}
 
-			if err := treemodel.Start(); err != nil {
-				return fmt.Errorf("could not complete search: %v", err)
+			if len(packages) == 0 {
+				return fmt.Errorf("could not find: %s", unikraft.TypeNameVersion(project.Template()))
+			} else if len(packages) > 1 {
+				return fmt.Errorf("too many options for %s", unikraft.TypeNameVersion(project.Template()))
 			}
 
-			proc := paraprogress.NewProcess(
-				fmt.Sprintf("pulling %s",
-					unikraft.TypeNameVersion(packages[0]),
-				),
-				func(ctx context.Context, w func(progress float64)) error {
-					return packages[0].Pull(
-						ctx,
-						pack.WithPullProgressFunc(w),
-						pack.WithPullWorkdir(workdir),
-						// pack.WithPullChecksum(!opts.NoChecksum),
-						// pack.WithPullCache(!opts.NoCache),
-					)
-				},
-			)
-
-			processes = append(processes, proc)
-
-			paramodel, err := paraprogress.NewParaProgress(
+			packages[0].Pull(
 				ctx,
-				processes,
-				paraprogress.IsParallel(parallel),
-				paraprogress.WithRenderer(norender),
-				paraprogress.WithFailFast(true),
+				pack.WithPullWorkdir(workdir),
+				// pack.WithPullChecksum(!opts.NoChecksum),
+				// pack.WithPullCache(!opts.NoCache),
 			)
-			if err != nil {
-				return err
-			}
-
-			if err := paramodel.Start(); err != nil {
-				return fmt.Errorf("could not pull all components: %v", err)
-			}
 		}
 
 		templateWorkdir, err := unikraft.PlaceComponent(workdir, project.Template().Type(), project.Template().Name())
@@ -847,40 +570,13 @@ func (opts *Pull) PullCmd(ctxt context.Context, args []string) error {
 
 		for _, p := range next {
 			p := p
-			processes = append(processes, paraprogress.NewProcess(
-				fmt.Sprintf("pulling %s",
-					c.query.String(),
-				),
-				func(ctx context.Context, w func(progress float64)) error {
-					return p.Pull(
-						ctx,
-						pack.WithPullProgressFunc(w),
-						pack.WithPullWorkdir(workdir),
-						pack.WithPullChecksum(!opts.NoChecksum),
-						pack.WithPullCache(opts.ForceCache),
-					)
-				},
-			))
+			p.Pull(
+				ctx,
+				pack.WithPullWorkdir(workdir),
+				pack.WithPullChecksum(!opts.NoChecksum),
+				pack.WithPullCache(opts.ForceCache),
+			)
 		}
-	}
-
-	model, err := paraprogress.NewParaProgress(
-		ctx,
-		processes,
-		paraprogress.IsParallel(parallel),
-		paraprogress.WithRenderer(norender),
-		paraprogress.WithFailFast(false),
-	)
-	if err != nil {
-		return err
-	}
-
-	if err := model.Start(); err != nil {
-		return err
-	}
-
-	if project != nil {
-		fmt.Fprint(iostreams.G(ctx).Out, project.PrintInfo(ctx))
 	}
 
 	return nil
@@ -953,31 +649,7 @@ func (opts *Update) UpdateCmd(ctxt context.Context, args []string) error {
 		}
 	}
 
-	parallel := !config.G[config.KraftKit](ctx).NoParallel
-	norender := log.LoggerTypeFromString(config.G[config.KraftKit](ctx).Log.Type) != log.FANCY
-
-	model, err := processtree.NewProcessTree(
-		ctx,
-		[]processtree.ProcessTreeOption{
-			// processtree.WithVerb("Updating"),
-			processtree.IsParallel(parallel),
-			processtree.WithRenderer(norender),
-		},
-		[]*processtree.ProcessTreeItem{
-			processtree.NewProcessTreeItem(
-				"Updating...",
-				"",
-				func(ctx context.Context) error {
-					return pm.Update(ctx)
-				},
-			),
-		}...,
-	)
-	if err != nil {
-		return err
-	}
-
-	return model.Start()
+	return pm.Update(ctx)
 }
 
 type Set struct {
