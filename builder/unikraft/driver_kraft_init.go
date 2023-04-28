@@ -22,14 +22,9 @@ import (
 	"kraftkit.sh/cmd/kraft/stop"
 	"kraftkit.sh/cmdfactory"
 	"kraftkit.sh/config"
-	"kraftkit.sh/manifest"
+	_ "kraftkit.sh/manifest"
 	"kraftkit.sh/oci"
-	"kraftkit.sh/pack"
 	"kraftkit.sh/packmanager"
-)
-
-const (
-	ManifestContext pack.ContextKey = "manifest"
 )
 
 type Kraft struct{}
@@ -58,15 +53,17 @@ func KraftCommandContext() context.Context {
 
 	ctx = config.WithConfigManager(ctx, cfgm)
 
-	packmanager.RegisterPackageManager(manifest.ManifestFormat, manifest.NewManifestManager)
-	packmanager.RegisterPackageManager(oci.OCIFormat, oci.NewOCIManager)
+	_ = packmanager.RegisterPackageManager(oci.OCIFormat, oci.NewOCIManager)
 	pm, err := packmanager.NewUmbrellaManager(ctx)
 	if err != nil {
 		panic(err)
 	}
 
 	command.SetContext(packmanager.WithPackageManager(ctx, pm))
-	cmd := cmdfactory.New(&Kraft{}, command)
+	cmd, err := cmdfactory.New(&Kraft{}, command)
+	if err != nil {
+		panic(err)
+	}
 	cmd.AddCommand(build.New())
 	cmd.AddCommand(clean.New())
 	cmd.AddCommand(events.New())
