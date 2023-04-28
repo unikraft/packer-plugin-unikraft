@@ -561,13 +561,23 @@ func (opts *Pkg) PkgCmd(ctxt context.Context, args []string) error {
 						)
 					}
 
-					if _, err := pm.Pack(ctx, targ, popts...); err != nil {
-						return err
-					}
+			targWithName, err := target.NewTargetFromOptions(
+				target.WithName(opts.Name),
+				target.WithArchitecture(targ.Architecture().(arch.ArchitectureConfig)),
+				target.WithPlatform(targ.Platform().(plat.PlatformConfig)),
+				target.WithKConfig(targ.KConfig()),
+				target.WithKernel(targ.Kernel()),
+				target.WithKernelDbg(targ.KernelDbg()),
+				target.WithInitrd(targ.Initrd()),
+				target.WithCommand(targ.Command()),
+			)
+			if err != nil {
+				return err
+			}
 
-					return nil
-				},
-			))
+			if _, err := pm.Pack(ctx, targWithName, popts...); err != nil {
+				return err
+			}
 
 		default:
 			continue
