@@ -4,12 +4,14 @@ before:
   hooks:
     # We strongly recommend running tests to catch any regression before release.
     # Even though, this an optional step.
-    - go test ./...
+    # TODO: Enable tests once there are proper tests in place
+    # - go test ./...
     # As part of the release doc files are included as a separate deliverable for
     # consumption by Packer.io. To include a separate docs.zip uncomment the following command.
     #- make ci-release-docs
     # Check plugin compatibility with required version of the Packer SDK
-    - make plugin-check
+    # TODO: Enable checking once it no longer errors inside libgit2
+    # - make plugin-check
 builds:
   # A separated build to run the packer-plugins-check only once for a linux_amd64 binary
   -
@@ -36,7 +38,6 @@ builds:
       - linux
     goarch:
       - amd64
-      - arm64
     binary: '{{ .ProjectName }}_v{{ .Version }}_{{ .Env.API_VERSION }}_{{ .Os }}_{{ .Arch }}'
 archives:
 - format: zip

@@ -28,7 +28,11 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: 1.20
+          go-version: "1.20.2"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get install -y libgit2-dev pkg-config 
 
       - name: Describe plugin
         id: plugin_describe
@@ -45,11 +49,23 @@ jobs:
         env:
           COSIGN_KEY: ${{ secrets.COSIGN_KEY }}
 
+      # - name: Install packer-sdc
+      #   run: |
+      #     go mod tidy
+      #     make install-packer-sdc
+
+      # - name: Check with packer-sdc
+      #   run: |
+      #     go build -o packer-plugin-unikraft
+      #     packer-sdc plugin-check packer-plugin-unikraft
+        # env:
+        #   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v3
         with:
           version: latest
-          args: release --rm-dist
+          args: release --clean
         env:
           GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
           API_VERSION: ${{ steps.plugin_describe.outputs.api_version }}
