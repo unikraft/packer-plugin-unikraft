@@ -13,7 +13,10 @@ require (
 	kraftkit.sh v0.5.1-48-gddb2e08
 )
 
-replace github.com/zclconf/go-cty => github.com/zclconf/go-cty v1.10.0
+replace (
+	github.com/zclconf/go-cty => github.com/zclconf/go-cty v1.10.0
+	github.com/libgit2/git2go/v31 => github.com/libgit2/git2go/v31 v31.7.9
+)
 
 require (
 	cloud.google.com/go v0.110.0 // indirect

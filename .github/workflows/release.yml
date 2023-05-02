@@ -13,61 +13,51 @@ name: release
 on:
   workflow_dispatch:
   push:
-    tags:
-      - 'v*'
+    tags: 'v*'
+
+permissions:
+  contents: write
+  packages: write
+
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
+    container: kraftkit.sh/myself-full:latest
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-
-      - name: Unshallow
-        run: git fetch --prune --unshallow
-
-      - name: Set up Go
-        uses: actions/setup-go@v3
         with:
-          go-version: "1.20.2"
+          fetch-depth: 0
+          submodules: recursive
 
-      - name: Install dependencies
+      - name: Update packages
         run: |
-          sudo apt-get install -y libgit2-dev pkg-config 
+          apt-get install -y --no-install-recommends \
+            jq \
+            libgit2-dev
+
+      - name: Fetch all tags
+        run: |
+          git config --global --add safe.directory /__w/packer-plugin-unikraft/packer-plugin-unikraft
+          git fetch --force --tags
 
       - name: Describe plugin
         id: plugin_describe
         run: echo "::set-output name=api_version::$(go run . describe | jq -r '.api_version')"
 
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@main
-        with:
-          cosign-release: "v1.4.1"
-
-      - name: Setup Cosign
-        run: |
-          echo "${COSIGN_KEY}" > "$GITHUB_WORKSPACE/cosign.key"
-        env:
-          COSIGN_KEY: ${{ secrets.COSIGN_KEY }}
-
-      # - name: Install packer-sdc
-      #   run: |
-      #     go mod tidy
-      #     make install-packer-sdc
-
-      # - name: Check with packer-sdc
-      #   run: |
-      #     go build -o packer-plugin-unikraft
-      #     packer-sdc plugin-check packer-plugin-unikraft
-        # env:
-        #   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v3
-        with:
-          version: latest
-          args: release --clean
+        run: |
+          goreleaser build \
+            --config .goreleaser.yml \
+            --skip-validate
+          goreleaser release \
+            --config .goreleaser.yml \
+            --clean --skip-validate \
+            --skip-sign
         env:
-          GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
           API_VERSION: ${{ steps.plugin_describe.outputs.api_version }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+          SIGNORE_CLIENT_ID: ${{ secrets.SIGNORE_CLIENT_ID }}
+          SIGNORE_CLIENT_SECRET: ${{ secrets.SIGNORE_CLIENT_SECRET }}
+          SIGNORE_SIGNER: ${{ secrets.SIGNORE_SIGNER }}
+

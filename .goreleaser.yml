@@ -1,5 +1,5 @@
 env:
-  - CGO_ENABLED=0
+  - CGO_ENABLED=1
 before:
   hooks:
     # We strongly recommend running tests to catch any regression before release.
@@ -19,6 +19,9 @@ builds:
     mod_timestamp: '{{ .CommitTimestamp }}'
     flags:
       - -trimpath #removes all file system paths from the compiled executable
+    tags:
+      - static
+      - system_libgit2
     ldflags:
       - '-s -w -X {{ .ModulePath }}/version.Version={{.Version}} -X {{ .ModulePath }}/version.VersionPrerelease= '
     goos:
@@ -27,17 +30,22 @@ builds:
       - amd64
     binary: '{{ .ProjectName }}_v{{ .Version }}_{{ .Env.API_VERSION }}_{{ .Os }}_{{ .Arch }}'
   -
+    id: linux-builds
     mod_timestamp: '{{ .CommitTimestamp }}'
     flags:
       - -trimpath
+    tags:
+      - static
+      - system_libgit2
     ldflags:
       - '-s -w -X {{ .ModulePath }}/version.Version={{.Version}} -X {{ .ModulePath }}/version.VersionPrerelease= '
     goos:
-      - openbsd
-      - freebsd
       - linux
     goarch:
       - amd64
+    ignore:
+      - goos: linux
+        goarch: amd64
     binary: '{{ .ProjectName }}_v{{ .Version }}_{{ .Env.API_VERSION }}_{{ .Os }}_{{ .Arch }}'
 archives:
 - format: zip
@@ -48,20 +56,10 @@ checksum:
   name_template: '{{ .ProjectName }}_v{{ .Version }}_SHA256SUMS'
   algorithm: sha256
 signs:
-  - id: cosign
-    cmd: cosign
-    stdin: "{{ .Env.COSIGN_PASSWORD }}"
+  - cmd: signore
+    args: ["sign", "--dearmor", "--file", "${artifact}", "--out", "${signature}"]
     artifacts: checksum
-    args:
-      # if you are using this is in a GitHub action or some other automated pipeline, you
-      # need to pass the batch flag to indicate its not interactive.
-      - "--batch"
-      - "--local-user"
-      - "{{ .Env.GPG_FINGERPRINT }}"
-      - "--output"
-      - "${signature}"
-      - "--detach-sign"
-      - "${artifact}"
+    signature: ${artifact}.sig
 release:
   # If you want to manually examine the release before its live, uncomment this line:
   # draft: true
