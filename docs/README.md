@@ -20,7 +20,7 @@ packer {
   required_plugins {
     unikraft = {
       version = ">= 0.1.0"
-      source  = "github.com/unikraft/packer-plugin-unikraft"
+      source  = "github.com/unikraft/unikraft"
     }
   }
 }
