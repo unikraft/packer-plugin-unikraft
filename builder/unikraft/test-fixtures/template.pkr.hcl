@@ -5,7 +5,7 @@ source "unikraft-builder" "example" {
   // Platform of the resulting binaries
   platform = "kvm"
 
-  # Path of the resulting binaries
+  // Path of the resulting binaries
   build_path = "/tmp/test/.unikraft/apps/helloworld"
   
   // Path where to pull the sources and build the binaries
