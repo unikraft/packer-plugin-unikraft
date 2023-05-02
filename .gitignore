@@ -7,3 +7,4 @@ crash.log
 dist/*
 .docs/*
 docs.zip
+cosign.key
