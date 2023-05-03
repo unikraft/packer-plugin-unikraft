@@ -26,6 +26,12 @@ source "unikraft-builder" "example" {
   // If to use the default source manifests
   sources_no_default = true
 
+  // If to build with all cores
+  fast = true
+
+  // If to keep the kraft.yaml file
+  keep_config = true
+
   // Additional sources to pull
   sources = [ "https://github.com/unikraft/app-nginx.git" ]
 }
@@ -37,7 +43,7 @@ build {
 
   post-processor "unikraft-post-processor" {
     // Type of the packaging method
-    type   = "cpio"
+    type = "initramfs"
 
     // Source from where to archive
     source = "/tmp/test/.unikraft/apps/nginx/fs0"
@@ -48,7 +54,7 @@ build {
 
   post-processor "unikraft-post-processor" {
     // Type of the packaging method
-    type   = "oci"
+    type = "oci"
 
     // Architecture of the packed binary
     architecture = "x86_64"
