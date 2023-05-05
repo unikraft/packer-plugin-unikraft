@@ -15,7 +15,7 @@ require (
 
 replace (
 	github.com/zclconf/go-cty => github.com/zclconf/go-cty v1.10.0
-	github.com/libgit2/git2go/v31 => github.com/libgit2/git2go/v31 v31.7.9
+	github.com/libgit2/git2go/v31 v31.7.9 => ./third_party/libgit2/git2go
 )
 
 require (
