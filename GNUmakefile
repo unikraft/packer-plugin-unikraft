@@ -13,7 +13,7 @@ GO_VERSION  ?= 1.20
 .PHONY: dev
 
 build: git2go
-	@go build -o ${BINARY}
+	@go build -tags static -buildvcs=false -o ${BINARY}
 
 dev: build
 	@mkdir -p ~/.packer.d/plugins/
