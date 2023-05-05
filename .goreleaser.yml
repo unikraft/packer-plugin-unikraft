@@ -29,6 +29,8 @@ builds:
     goarch:
       - amd64
     binary: '{{ .ProjectName }}_v{{ .Version }}_{{ .Env.API_VERSION }}_{{ .Os }}_{{ .Arch }}'
+    hooks:
+      pre: make git2go
   -
     id: linux-builds
     mod_timestamp: '{{ .CommitTimestamp }}'
@@ -47,6 +49,8 @@ builds:
       - goos: linux
         goarch: amd64
     binary: '{{ .ProjectName }}_v{{ .Version }}_{{ .Env.API_VERSION }}_{{ .Os }}_{{ .Arch }}'
+    hooks:
+      pre: make git2go
 archives:
 - format: zip
   files:
