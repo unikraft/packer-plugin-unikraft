@@ -10,12 +10,12 @@ require (
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.7.0
 	github.com/zclconf/go-cty v1.12.1
-	kraftkit.sh v0.5.1-48-gddb2e08
+	kraftkit.sh v0.5.1
 )
 
 replace (
-	github.com/zclconf/go-cty => github.com/zclconf/go-cty v1.10.0
 	github.com/libgit2/git2go/v31 v31.7.9 => ./third_party/libgit2/git2go
+	github.com/zclconf/go-cty => github.com/zclconf/go-cty v1.10.0
 )
 
 require (
