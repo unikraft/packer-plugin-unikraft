@@ -12,8 +12,8 @@ GO_VERSION  ?= 1.20
 
 .PHONY: dev
 
-build: git2go
-	@go build -tags static -buildvcs=false -o ${BINARY}
+build:
+	@go build -buildvcs=false -o ${BINARY}
 
 dev: build
 	@mkdir -p ~/.packer.d/plugins/
@@ -37,32 +37,3 @@ testacc: dev
 
 generate: install-packer-sdc
 	@go generate ./...
-
-.PHONY: git2go
-git2go: $(VENDORDIR)/libgit2/git2go/static-build/install/lib/pkgconfig/libgit2.pc
-	@go install -tags static github.com/libgit2/git2go/v31/...
-
-$(VENDORDIR)/libgit2/git2go/static-build/install/lib/pkgconfig/libgit2.pc: $(VENDORDIR)/libgit2/git2go/vendor/libgit2
-	@mkdir -p $(VENDORDIR)/libgit2/git2go/static-build/build
-	@mkdir -p $(VENDORDIR)/libgit2/git2go/static-build/install
-	(cd $(VENDORDIR)/libgit2/git2go/static-build/build && $(CMAKE) \
-		-DTHREADSAFE=ON \
-		-DBUILD_CLAR=OFF \
-		-DBUILD_SHARED_LIBS=OFF \
-		-DREGEX_BACKEND=builtin \
-		-DUSE_BUNDLED_ZLIB=ON \
-		-DUSE_HTTPS=ON \
-		-DUSE_SSH=ON \
-		-DCMAKE_C_FLAGS=-fPIC \
-		-DCMAKE_BUILD_TYPE="RelWithDebInfo" \
-		-DCMAKE_INSTALL_PREFIX=$(VENDORDIR)/libgit2/git2go/static-build/install \
-		-DCMAKE_INSTALL_LIBDIR="lib" \
-		-DDEPRECATE_HARD="${BUILD_DEPRECATE_HARD}" \
-		$(VENDORDIR)/libgit2/git2go/vendor/libgit2)
-	$(MAKE) -C $(VENDORDIR)/libgit2/git2go/static-build/build install
-
-$(VENDORDIR)/libgit2/git2go/vendor/libgit2: $(VENDORDIR)/libgit2/git2go
-	@git -C $(VENDORDIR)/libgit2/git2go submodule update --init --recursive
-
-$(VENDORDIR)/libgit2/git2go:
-	@git clone --branch v31.7.9 --recurse-submodules https://github.com/libgit2/git2go.git $@
