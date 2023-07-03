@@ -11,7 +11,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.7.0
 	github.com/zclconf/go-cty v1.13.0
-	kraftkit.sh v0.6.1-21-g0843f4e
+	kraftkit.sh v0.6.1
 )
 
 require (
