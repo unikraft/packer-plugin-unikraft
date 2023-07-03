@@ -31,7 +31,7 @@ func (s *StepPkgPull) Run(_ context.Context, state multistep.StateBag) multistep
 
 	driver := state.Get("driver").(Driver)
 
-	err := driver.Pull("app-"+config.PullSource, config.Workdir)
+	err := driver.Pull(config.PullSource, config.Workdir)
 	if err != nil {
 		err := fmt.Errorf("error encountered pulling kraft package: %s", err)
 		state.Put("error", err)

@@ -39,11 +39,11 @@ func (s *StepBuild) Run(_ context.Context, state multistep.StateBag) multistep.S
 	// Copy all executable files in the `path/build` folder and move them to `path/dist`
 	// Open the folder for reading
 	var executableFiles []string = []string{}
-	filepath.Walk(filepath.Join(config.Path, "build"), func(path string, info os.FileInfo, err error) error {
+	filepath.Walk(filepath.Join(config.Path, ".unikraft", "build"), func(path string, info os.FileInfo, err error) error {
 		// Check if the file is executable and not a symlink or directory
 		if !info.IsDir() && info.Mode()&0111 != 0 && info.Mode()&os.ModeSymlink == 0 {
 			// Check if the file is in the root of the build folder
-			if !strings.ContainsRune(strings.TrimPrefix(path, filepath.Join(config.Path, "build"))[1:], filepath.Separator) {
+			if !strings.ContainsRune(strings.TrimPrefix(path, filepath.Join(config.Path, ".unikraft", "build"))[1:], filepath.Separator) {
 				executableFiles = append(executableFiles, path)
 			}
 		}
@@ -52,13 +52,14 @@ func (s *StepBuild) Run(_ context.Context, state multistep.StateBag) multistep.S
 	})
 
 	// Create the dist folder if it doesn't exist
-	if _, err := os.Stat(filepath.Join(config.Path, "dist")); os.IsNotExist(err) {
-		os.Mkdir(filepath.Join(config.Path, "dist"), 0755)
+	if _, err := os.Stat(filepath.Join(config.Path, ".unikraft", "dist")); os.IsNotExist(err) {
+		os.Mkdir(filepath.Join(config.Path, ".unikraft", "dist"), 0755)
 	}
 
 	// Move the files to the dist folder
 	for _, file := range executableFiles {
-		err := os.Rename(file, filepath.Join(config.Path, "dist", filepath.Base(file)))
+		ui.Say(fmt.Sprintf("Moving %s to %s", file, filepath.Join(config.Path, ".unikraft", "dist", filepath.Base(file))))
+		err := os.Rename(file, filepath.Join(config.Path, ".unikraft", "dist", filepath.Base(file)))
 		if err != nil {
 			err := fmt.Errorf("error encountered saving kraft package: %s", err)
 			state.Put("error", err)
@@ -86,7 +87,7 @@ func (s *StepBuild) Cleanup(state multistep.StateBag) {
 	}
 
 	// Remove the build folder
-	err := os.RemoveAll(filepath.Join(config.Path, "build"))
+	err := os.RemoveAll(filepath.Join(config.Path, ".unikraft", "build"))
 	if err != nil {
 		err := fmt.Errorf("error encountered cleaning kraft package: %s", err)
 		state.Put("error", err)
@@ -94,7 +95,7 @@ func (s *StepBuild) Cleanup(state multistep.StateBag) {
 	}
 
 	// Rename the dist folder to build
-	err = os.Rename(filepath.Join(config.Path, "dist"), filepath.Join(config.Path, "build"))
+	err = os.Rename(filepath.Join(config.Path, ".unikraft", "dist"), filepath.Join(config.Path, ".unikraft", "build"))
 	if err != nil {
 		err := fmt.Errorf("error encountered cleaning kraft package: %s", err)
 		state.Put("error", err)
