@@ -22,15 +22,13 @@ type FlatConfig struct {
 	Platform            *string           `mapstructure:"platform" required:"true" cty:"platform" hcl:"platform"`
 	Force               *bool             `mapstructure:"force" cty:"force" hcl:"force"`
 	Target              *string           `mapstructure:"target" cty:"target" hcl:"target"`
-	Jobs                *int              `mapstructure:"jobs" cty:"jobs" hcl:"jobs"`
-	Fast                *bool             `mapstructure:"fast" cty:"fast" hcl:"fast"`
 	Path                *string           `mapstructure:"build_path" required:"true" cty:"build_path" hcl:"build_path"`
 	PullSource          *string           `mapstructure:"pull_source" cty:"pull_source" hcl:"pull_source"`
 	Workdir             *string           `mapstructure:"workdir" cty:"workdir" hcl:"workdir"`
 	Sources             []string          `mapstructure:"sources" cty:"sources" hcl:"sources"`
 	SourcesNoDefault    *bool             `mapstructure:"sources_no_default" cty:"sources_no_default" hcl:"sources_no_default"`
 	Options             *string           `mapstructure:"options" cty:"options" hcl:"options"`
-	KeepConfig          *bool             `mapstructure:"keep_config" cty:"keep_config" hcl:"keep_config"`
+	LogLevel            *string           `mapstructure:"log_level" cty:"log_level" hcl:"log_level"`
 }
 
 // FlatMapstructure returns a new FlatConfig.
@@ -57,15 +55,13 @@ func (*FlatConfig) HCL2Spec() map[string]hcldec.Spec {
 		"platform":                   &hcldec.AttrSpec{Name: "platform", Type: cty.String, Required: false},
 		"force":                      &hcldec.AttrSpec{Name: "force", Type: cty.Bool, Required: false},
 		"target":                     &hcldec.AttrSpec{Name: "target", Type: cty.String, Required: false},
-		"jobs":                       &hcldec.AttrSpec{Name: "jobs", Type: cty.Number, Required: false},
-		"fast":                       &hcldec.AttrSpec{Name: "fast", Type: cty.Bool, Required: false},
 		"build_path":                 &hcldec.AttrSpec{Name: "build_path", Type: cty.String, Required: false},
 		"pull_source":                &hcldec.AttrSpec{Name: "pull_source", Type: cty.String, Required: false},
 		"workdir":                    &hcldec.AttrSpec{Name: "workdir", Type: cty.String, Required: false},
 		"sources":                    &hcldec.AttrSpec{Name: "sources", Type: cty.List(cty.String), Required: false},
 		"sources_no_default":         &hcldec.AttrSpec{Name: "sources_no_default", Type: cty.Bool, Required: false},
 		"options":                    &hcldec.AttrSpec{Name: "options", Type: cty.String, Required: false},
-		"keep_config":                &hcldec.AttrSpec{Name: "keep_config", Type: cty.Bool, Required: false},
+		"log_level":                  &hcldec.AttrSpec{Name: "log_level", Type: cty.String, Required: false},
 	}
 	return s
 }
