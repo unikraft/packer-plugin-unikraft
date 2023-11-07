@@ -41,7 +41,7 @@ func (b *Builder) Run(ctx context.Context, ui packer.Ui, hook packer.Hook) (pack
 	driver := &KraftDriver{
 		Ctx:            &b.config.ctx,
 		Ui:             ui,
-		CommandContext: KraftCommandContext(),
+		CommandContext: KraftCommandContext(ui, b.config.LogLevel),
 	}
 
 	steps := []multistep.Step{
