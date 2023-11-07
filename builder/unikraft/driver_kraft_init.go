@@ -3,25 +3,12 @@ package unikraft
 import (
 	"context"
 	"fmt"
-	"os"
 
+	packersdk "github.com/hashicorp/packer-plugin-sdk/packer"
 	"github.com/rancher/wrangler/pkg/signals"
-	"github.com/spf13/cobra"
-	"kraftkit.sh/cmd/kraft/build"
-	"kraftkit.sh/cmd/kraft/clean"
-	"kraftkit.sh/cmd/kraft/events"
-	"kraftkit.sh/cmd/kraft/fetch"
-	"kraftkit.sh/cmd/kraft/menu"
-	"kraftkit.sh/cmd/kraft/pkg"
-	"kraftkit.sh/cmd/kraft/prepare"
-	"kraftkit.sh/cmd/kraft/properclean"
-	"kraftkit.sh/cmd/kraft/ps"
-	"kraftkit.sh/cmd/kraft/rm"
-	"kraftkit.sh/cmd/kraft/run"
-	"kraftkit.sh/cmd/kraft/set"
-	"kraftkit.sh/cmd/kraft/stop"
-	"kraftkit.sh/cmdfactory"
+	"github.com/sirupsen/logrus"
 	"kraftkit.sh/config"
+	"kraftkit.sh/log"
 	"kraftkit.sh/manifest"
 	"kraftkit.sh/oci"
 	"kraftkit.sh/packmanager"
@@ -29,20 +16,21 @@ import (
 
 type Kraft struct{}
 
-func (k *Kraft) Run(cmd *cobra.Command, args []string) error {
+func (k *Kraft) Run(ctx context.Context, args []string) error {
 	return fmt.Errorf("kraft command should not be called")
 }
 
 // KraftCommandContext returns a context with the Kraft commands registered.
 // It needs to initialise the commands to ensure that internal context functions are called.
-func KraftCommandContext() context.Context {
-	command := cobra.Command{}
+func KraftCommandContext(ui packersdk.Ui, logLevel string) context.Context {
 	ctx := signals.SetupSignalContext()
 
 	cfg, err := config.NewDefaultKraftKitConfig()
 	if err != nil {
 		panic(err)
 	}
+	cfg.NoPrompt = true
+
 	cfgm, err := config.NewConfigManager(
 		cfg,
 		config.WithFile[config.KraftKit](config.DefaultConfigFile(), true),
@@ -53,33 +41,61 @@ func KraftCommandContext() context.Context {
 
 	ctx = config.WithConfigManager(ctx, cfgm)
 
-	_ = packmanager.RegisterPackageManager(manifest.ManifestFormat, manifest.NewManifestManager)
-	_ = packmanager.RegisterPackageManager(oci.OCIFormat, oci.NewOCIManager)
-	pm, err := packmanager.NewUmbrellaManager(ctx)
+	// Set up a default logger based on the internal TextFormatter
+	logger := logrus.New()
+	formatter := new(log.TextFormatter)
+	formatter.FullTimestamp = true
+	formatter.DisableTimestamp = true
+	logger.Formatter = formatter
+
+	switch logLevel {
+	case "trace":
+		logger.Level = logrus.TraceLevel
+	case "debug":
+		logger.Level = logrus.DebugLevel
+	case "info":
+		logger.Level = logrus.InfoLevel
+	case "warn":
+		logger.Level = logrus.WarnLevel
+	case "error":
+		logger.Level = logrus.ErrorLevel
+	case "fatal":
+		logger.Level = logrus.FatalLevel
+	case "panic":
+		logger.Level = logrus.PanicLevel
+	default:
+		logger.Level = logrus.InfoLevel
+	}
+
+	logger.SetOutput(&LoggerWriter{
+		ui: &ui,
+	})
+
+	ctx = log.WithLogger(ctx, logger)
+
+	managerConstructors := []func(u *packmanager.UmbrellaManager) error{
+		oci.RegisterPackageManager(),
+		manifest.RegisterPackageManager(),
+	}
+
+	err = packmanager.InitUmbrellaManager(ctx, managerConstructors)
 	if err != nil {
 		panic(err)
 	}
 
-	command.SetContext(packmanager.WithPackageManager(ctx, pm))
-	cmd, err := cmdfactory.New(&Kraft{}, command)
+	ctx, err = packmanager.WithDefaultUmbrellaManagerInContext(ctx)
 	if err != nil {
 		panic(err)
 	}
-	cmd.AddCommand(build.New())
-	cmd.AddCommand(clean.New())
-	cmd.AddCommand(events.New())
-	cmd.AddCommand(fetch.New())
-	cmd.AddCommand(menu.New())
-	cmd.AddCommand(pkg.New())
-	cmd.AddCommand(prepare.New())
-	cmd.AddCommand(properclean.New())
-	cmd.AddCommand(ps.New())
-	cmd.AddCommand(rm.New())
-	cmd.AddCommand(run.New())
-	cmd.AddCommand(set.New())
-	cmd.AddCommand(stop.New())
+	return ctx
+}
 
-	cmdfactory.AttributeFlags(cmd, cfgm.Config, os.Args...)
+// Logger writer that implements the writer interface
+type LoggerWriter struct {
+	ui *packersdk.Ui
+}
 
-	return cmd.Context()
+func (l *LoggerWriter) Write(p []byte) (n int, err error) {
+	(*l.ui).Message(string(p[:len(p)-1]))
+	return len(p), nil
 }
