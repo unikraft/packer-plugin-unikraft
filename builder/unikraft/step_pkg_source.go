@@ -28,7 +28,7 @@ func (s *StepPkgSource) Run(_ context.Context, state multistep.StateBag) multist
 
 	if config.SourcesNoDefault {
 		s.defaultAlreadyMissing = false
-		err := driver.Source("https://manifests.kraftkit.sh/index.yaml")
+		err := driver.Unsource("https://manifests.kraftkit.sh/index.yaml")
 		if err != nil {
 			// Do not fail if there's no default manifest, but output the error
 			s.defaultAlreadyMissing = true
