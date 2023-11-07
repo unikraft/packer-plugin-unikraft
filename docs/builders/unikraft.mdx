@@ -1,6 +1,6 @@
 ---
 description: >
-  The unikraft builder uses kraftkit to create runnable unikraft unikernel images. 
+  The unikraft builder uses kraftkit to create runnable unikraft unikernel images.
 page_title: Unikraft - Builder
 nav_title: Unikraft
 ---
@@ -26,16 +26,13 @@ All three together build the images and offer final binaries.
 
 ### Optional
 
-- `force` (boolean) - Force rebuilding an unikernel from scratch.
 - `target` (string) - The name of the image to build.
-- `jobs` (int) - The number of jobs to run in parallel. Currently disabled, use `fast` instead.
-- `fast` (boolean) - Build jobs in parallel. 
 - `pull_source` (string) - The name of the application to pull.
 - `workdir` (string) - The path to pull the source to. It's a parent directory of `build_path`.
 - `sources_no_default` (boolean) - Do not pull the default manifest sources. Required when working with custom repositories.
 - `sources` (string list) - The links of the sources to pull.
 - `options` (string) - The options to pass to the build system. Options are separated by spaces and of the format `KEY=value`. Currently disabled.
-- `keep_config` (boolean) - Keep the `kraft.yaml` configuration file after building. Required by the post-processor.
+- `log_level` (string) - The log level to use. Can be `debug`, `info`, `warn`, `error`, `fatal`, `panic`. Default: `info`.
 
 ### Example Usage
 
@@ -43,13 +40,13 @@ All three together build the images and offer final binaries.
 ```hcl
  source "unikraft-builder" "example" {
     architecture = "x86_64"
-    platform = "kvm"
+    platform = "qemu"
     build_path = "/tmp/test/.unikraft/apps/helloworld"
     workdir = "/tmp/test"
-    fast = true
     pull_source = "helloworld"
     sources_no_default = false
     sources = [ "https://github.com/unikraft/app-helloworld" ]
+    log_level = "info"
  }
 
  build {
