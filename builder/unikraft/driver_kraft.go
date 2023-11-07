@@ -15,30 +15,36 @@ type KraftDriver struct {
 	CommandContext context.Context
 }
 
-func (d *KraftDriver) Build(path, architecture, platform string, fast bool) error {
+func (d *KraftDriver) Build(path, architecture, platform, target string) error {
 	c := Build{
 		Architecture: architecture,
 		Platform:     platform,
-		Fast:         fast,
+		Target:       target,
+		NoCache:      true,
+		NoUpdate:     true,
 	}
-	return c.BuildCmd(d.CommandContext, []string{path})
+	return c.BuildCmd(d.CommandContext, path)
 }
 
-func (d *KraftDriver) Pkg(architecture, platform, pkgType, pkgName, workdir string) error {
+func (d *KraftDriver) Pkg(architecture, platform, target, pkgName, workdir, rootfs string, push bool) error {
 	c := Pkg{
 		Architecture: architecture,
 		Platform:     platform,
-		Format:       pkgType,
+		Target:       target,
+		Format:       "oci",
 		Name:         pkgName,
+		Push:         push,
+		Rootfs:       rootfs,
 	}
 
-	return c.PkgCmd(d.CommandContext, []string{workdir})
+	_, err := c.PackCmd(d.CommandContext, workdir)
+	return err
 }
 
-func (d *KraftDriver) ProperClean(path string) error {
-	c := ProperClean{}
+func (d *KraftDriver) Clean(path string) error {
+	c := Clean{}
 
-	return c.ProperCleanCmd(d.CommandContext, []string{path})
+	return c.CleanCmd(d.CommandContext, []string{path})
 }
 
 func (d *KraftDriver) Pull(source, workdir string) error {
@@ -61,7 +67,9 @@ func (d *KraftDriver) Set(options map[string]string) error {
 }
 
 func (d *KraftDriver) Source(source string) error {
-	c := Source{}
+	c := Source{
+		Force: false,
+	}
 
 	return c.SourceCmd(d.CommandContext, []string{source})
 }

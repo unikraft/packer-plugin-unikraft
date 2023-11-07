@@ -5,14 +5,16 @@ type MockDriver struct {
 	BuildPath         string
 	BuildArchitecture string
 	BuildPlatform     string
+	BuildTarget       string
 
 	PkgCalled       bool
-	PkgType         string
 	PkgArchitecture string
 	PkgPlatform     string
+	PkgTarget       string
+	PkgPush         bool
 
-	ProperCleanCalled bool
-	ProperCleanPath   string
+	CleanCalled bool
+	CleanPath   string
 
 	PullCalled  bool
 	PullSource  string
@@ -33,25 +35,27 @@ type MockDriver struct {
 	UnsetOptions []string
 }
 
-func (d *MockDriver) Build(path, architecture, platform string) error {
+func (d *MockDriver) Build(path, architecture, platform, target string) error {
 	d.BuildCalled = true
 	d.BuildPath = path
 	d.BuildArchitecture = architecture
 	d.BuildPlatform = platform
+	d.BuildTarget = target
 	return nil
 }
 
-func (d *MockDriver) Pkg(architecture, platform, pkgType, pkgName string) error {
+func (d *MockDriver) Pkg(architecture, platform, target, pkgName string, push bool) error {
 	d.PkgArchitecture = architecture
 	d.PkgPlatform = platform
+	d.PkgTarget = target
 	d.PkgCalled = true
-	d.PkgType = pkgType
+	d.PkgPush = push
 	return nil
 }
 
-func (d *MockDriver) ProperClean(path string) error {
-	d.ProperCleanCalled = true
-	d.ProperCleanPath = path
+func (d *MockDriver) Clean(path string) error {
+	d.CleanCalled = true
+	d.CleanPath = path
 	return nil
 }
 
