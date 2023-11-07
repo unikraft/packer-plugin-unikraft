@@ -32,9 +32,7 @@ jobs:
 
       - name: Update packages
         run: |
-          apt-get install -y --no-install-recommends \
-            jq \
-            libgit2-dev
+          apt-get install -y --no-install-recommends jq
 
       - name: Fetch all tags
         run: |
