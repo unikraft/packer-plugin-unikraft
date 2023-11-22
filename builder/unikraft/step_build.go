@@ -28,7 +28,7 @@ func (s *StepBuild) Run(_ context.Context, state multistep.StateBag) multistep.S
 
 	driver := state.Get("driver").(Driver)
 
-	err := driver.Build(config.Path, config.Architecture, config.Platform, config.Fast)
+	err := driver.Build(config.Path, config.Architecture, config.Platform, config.Target)
 	if err != nil {
 		err := fmt.Errorf("error encountered building kraft package: %s", err)
 		state.Put("error", err)

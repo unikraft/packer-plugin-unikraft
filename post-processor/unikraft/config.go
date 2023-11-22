@@ -17,16 +17,22 @@ const BuilderId = "packer.post-processor.unikraft"
 type Config struct {
 	common.PackerConfig `mapstructure:",squash"`
 
-	// The type of the file system to create.
-	Type string `mapstructure:"type"`
 	// The path to the unformatted files.
-	FileSource string `mapstructure:"source"`
+	FileSource string `mapstructure:"source" required:"true"`
 	// The path to the formatted files.
-	FileDestination string `mapstructure:"destination"`
-	// The architecture of the unikernel.
-	Architecture string `mapstructure:"architecture"`
-	// The platform of the unikernel.
-	Platform string `mapstructure:"platform"`
+	FileDestination string `mapstructure:"destination" required:"true"`
+	// The architecture of the unikernel. This is required.
+	Architecture string `mapstructure:"architecture" required:"true"`
+	// The platform of the unikernel. This is required.
+	Platform string `mapstructure:"platform" required:"true"`
+	// The specific target to package.
+	Target string `mapstructure:"target"`
+	// Whether to push the package to a registry.
+	Push bool `mapstructure:"push"`
+	// The rootfs to use.
+	Rootfs string `mapstructure:"rootfs"`
+	// Log level to use.
+	LogLevel string `mapstructure:"log_level"`
 
 	ctx interpolate.Context
 }
@@ -56,10 +62,6 @@ func (c *Config) Prepare(raws ...interface{}) ([]string, error) {
 
 	if c.FileDestination == "" {
 		errs = packer.MultiErrorAppend(errs, fmt.Errorf("file destination must be specified"))
-	}
-
-	if c.Type == "" || (c.Type != "cpio" && c.Type != "oci") {
-		errs = packer.MultiErrorAppend(errs, fmt.Errorf("package type must be specified"))
 	}
 
 	if errs != nil && len(errs.Errors) > 0 {

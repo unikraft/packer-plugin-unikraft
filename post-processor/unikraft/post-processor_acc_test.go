@@ -31,18 +31,6 @@ func TestAccScaffoldingPostProcessor(t *testing.T) {
 				}
 			}
 
-			// logs, err := os.Open(logfile)
-			// if err != nil {
-			// 	return fmt.Errorf("unable find %s", logfile)
-			// }
-			// defer logs.Close()
-
-			// logsBytes, err := ioutil.ReadAll(logs)
-			// if err != nil {
-			// 	return fmt.Errorf("unable to read %s", logfile)
-			// }
-			// logsString := string(logsBytes)
-
 			return nil
 		},
 	}

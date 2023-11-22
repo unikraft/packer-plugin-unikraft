@@ -8,7 +8,7 @@ HASHICORP_PACKER_PLUGIN_SDK_VERSION?=$(shell go list -m github.com/hashicorp/pac
 CMAKE       ?= cmake
 WORKDIR     ?= $(CURDIR)
 VENDORDIR   ?= $(WORKDIR)/third_party
-GO_VERSION  ?= 1.20
+GO_VERSION  ?= 1.21
 
 .PHONY: dev
 

@@ -9,142 +9,107 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/mattn/go-shellwords"
 	"github.com/sirupsen/logrus"
 	"kraftkit.sh/config"
 	"kraftkit.sh/exec"
+	"kraftkit.sh/initrd"
 	"kraftkit.sh/iostreams"
 	"kraftkit.sh/log"
+	"kraftkit.sh/machine/platform"
 	"kraftkit.sh/make"
 	"kraftkit.sh/pack"
 	"kraftkit.sh/packmanager"
+	"kraftkit.sh/tui/multiselect"
+	"kraftkit.sh/tui/selection"
 	"kraftkit.sh/unikraft"
 	"kraftkit.sh/unikraft/app"
+	"kraftkit.sh/unikraft/arch"
 	"kraftkit.sh/unikraft/target"
 )
 
 type Build struct {
+	All          bool
 	Architecture string
 	DotConfig    string
-	Fast         bool
+	ForcePull    bool
 	Jobs         int
 	KernelDbg    bool
+	Kraftfile    string
 	NoCache      bool
 	NoConfigure  bool
+	NoFast       bool
 	NoFetch      bool
-	NoPrepare    bool
-	NoPull       bool
+	NoUpdate     bool
 	Platform     string
+	Rootfs       string
 	SaveBuildLog string
 	Target       string
+
+	project app.Application
+	workdir string
 }
 
-func FilterTargets(targets target.Targets, arch, plat, targ string) target.Targets {
-	var selected target.Targets
-
-	type condition func(target.Target, string, string, string) bool
-
-	conditions := []condition{
-		// If no arguments are supplied
-		func(t target.Target, arch, plat, targ string) bool {
-			return len(targ) == 0 && len(arch) == 0 && len(plat) == 0
-		},
-
-		// If the `targ` is supplied and the target name match
-		func(t target.Target, arch, plat, targ string) bool {
-			return len(targ) > 0 && t.Name() == targ
-		},
-
-		// If only `arch` is supplied and the target's arch matches
-		func(t target.Target, arch, plat, targ string) bool {
-			return len(arch) > 0 && len(plat) == 0 && t.Architecture().Name() == arch
-		},
-
-		// If only `plat`` is supplied and the target's platform matches
-		func(t target.Target, arch, plat, targ string) bool {
-			return len(plat) > 0 && len(arch) == 0 && t.Platform().Name() == plat
-		},
-
-		// If both `arch` and `plat` are supplied and match the target
-		func(t target.Target, arch, plat, targ string) bool {
-			return len(plat) > 0 && len(arch) > 0 && t.Architecture().Name() == arch && t.Platform().Name() == plat
-		},
-	}
-
-	// Filter `targets` by input arguments `arch`, `plat` and/or `targ`
-	for _, t := range targets {
-		for _, c := range conditions {
-			if !c(t, arch, plat, targ) {
-				continue
-			}
-
-			selected = append(selected, t)
-		}
-	}
-
-	return selected
-}
-
-func (opts *Build) pull(ctx context.Context, project app.Application, workdir string, norender bool, nameWidth int) error {
+func (opts *Build) pull(ctx context.Context) error {
 	var missingPacks []pack.Package
 	auths := config.G[config.KraftKit](ctx).Auth
 
-	if _, err := project.Components(ctx); err != nil && project.Template().Name() != "" {
-		var packages []pack.Package
-		packages, err = packmanager.G(ctx).Catalog(ctx,
-			packmanager.WithName(project.Template().Name()),
-			packmanager.WithTypes(unikraft.ComponentTypeApp),
-			packmanager.WithVersion(project.Template().Version()),
-			packmanager.WithCache(!opts.NoCache),
-			packmanager.WithAuthConfig(config.G[config.KraftKit](ctx).Auth),
-		)
-		if err != nil {
-			return err
-		}
+	if template := opts.project.Template(); template != nil {
+		if stat, err := os.Stat(template.Path()); err != nil || !stat.IsDir() || opts.ForcePull {
+			var templatePack pack.Package
 
-		if len(packages) == 0 {
-			return fmt.Errorf("could not find: %s",
-				unikraft.TypeNameVersion(project.Template()),
+			p, err := packmanager.G(ctx).Catalog(ctx,
+				packmanager.WithName(template.Name()),
+				packmanager.WithTypes(template.Type()),
+				packmanager.WithVersion(template.Version()),
+				packmanager.WithSource(template.Source()),
+				packmanager.WithUpdate(opts.NoCache),
+				packmanager.WithAuthConfig(auths),
 			)
-		} else if len(packages) > 1 {
-			return fmt.Errorf("too many options for %s",
-				unikraft.TypeNameVersion(project.Template()),
+			if err != nil {
+				return err
+			}
+
+			if len(p) == 0 {
+				return fmt.Errorf("could not find: %s",
+					unikraft.TypeNameVersion(template),
+				)
+			} else if len(p) > 1 {
+				return fmt.Errorf("too many options for %s",
+					unikraft.TypeNameVersion(template),
+				)
+			}
+
+			templatePack = p[0]
+
+			templatePack.Pull(
+				ctx,
+				pack.WithPullWorkdir(opts.workdir),
+				// pack.WithPullChecksum(!opts.NoChecksum),
+				pack.WithPullCache(!opts.NoCache),
+				pack.WithPullAuthConfig(auths),
 			)
 		}
 
-		return packages[0].Pull(
-			ctx,
-			pack.WithPullWorkdir(workdir),
-			// pack.WithPullChecksum(!opts.NoChecksum),
-			pack.WithPullCache(!opts.NoCache),
-		)
-	}
-
-	if project.Template().Name() != "" {
-		templateWorkdir, err := unikraft.PlaceComponent(workdir, project.Template().Type(), project.Template().Name())
-		if err != nil {
-			return err
-		}
-
-		templateProject, err := app.NewProjectFromOptions(
-			ctx,
-			app.WithProjectWorkdir(templateWorkdir),
+		templateProject, err := app.NewProjectFromOptions(ctx,
+			app.WithProjectWorkdir(template.Path()),
 			app.WithProjectDefaultKraftfiles(),
 		)
 		if err != nil {
 			return err
 		}
 
-		project, err = templateProject.MergeTemplate(ctx, project)
+		// Overwrite template with user options
+		opts.project, err = opts.project.MergeTemplate(ctx, templateProject)
 		if err != nil {
 			return err
 		}
 	}
 
-	// Overwrite template with user options
-	components, err := project.Components(ctx)
+	components, err := opts.project.Components(ctx)
 	if err != nil {
 		return err
 	}
@@ -157,15 +122,25 @@ func (opts *Build) pull(ctx context.Context, project app.Application, workdir st
 			continue
 		}
 
+		// Only continue to find and pull the component if it does not exist
+		// locally or the user has requested to --force-pull.
+		if stat, err := os.Stat(component.Path()); err == nil && stat.IsDir() && !opts.ForcePull {
+			continue
+		}
+
 		component := component // loop closure
 		auths := auths
+
+		if f, err := os.Stat(component.Source()); err == nil && f.IsDir() {
+			continue
+		}
 
 		p, err := packmanager.G(ctx).Catalog(ctx,
 			packmanager.WithName(component.Name()),
 			packmanager.WithTypes(component.Type()),
 			packmanager.WithVersion(component.Version()),
 			packmanager.WithSource(component.Source()),
-			packmanager.WithCache(!opts.NoCache),
+			packmanager.WithUpdate(opts.NoCache),
 			packmanager.WithAuthConfig(auths),
 		)
 		if err != nil {
@@ -177,6 +152,13 @@ func (opts *Build) pull(ctx context.Context, project app.Application, workdir st
 				unikraft.TypeNameVersion(component),
 			)
 		} else if len(p) > 1 {
+			log.G(ctx).Warnf("too many options for %s, %d",
+				unikraft.TypeNameVersion(component),
+				len(p),
+			)
+			for _, p1 := range p {
+				log.G(ctx).Warnf(" - %s", p1.String())
+			}
 			return fmt.Errorf("too many options for %s",
 				unikraft.TypeNameVersion(component),
 			)
@@ -189,103 +171,99 @@ func (opts *Build) pull(ctx context.Context, project app.Application, workdir st
 		for _, p := range missingPacks {
 			p := p // loop closure
 			auths := auths
-			err := p.Pull(
+			p.Pull(
 				ctx,
-				pack.WithPullWorkdir(workdir),
+				pack.WithPullWorkdir(opts.workdir),
 				// pack.WithPullChecksum(!opts.NoChecksum),
 				pack.WithPullCache(!opts.NoCache),
 				pack.WithPullAuthConfig(auths),
 			)
-
-			if err != nil {
-				return err
-			}
 		}
 	}
 
 	return nil
 }
 
-func (opts *Build) BuildCmd(ctxt context.Context, args []string) error {
+func (opts *Build) BuildCmd(ctx context.Context, args ...string) error {
 	var err error
-	var workdir string
-
-	if (len(opts.Architecture) > 0 || len(opts.Platform) > 0) && len(opts.Target) > 0 {
-		return fmt.Errorf("the `--arch` and `--plat` options are not supported in addition to `--target`")
-	}
 
 	if len(args) == 0 {
-		workdir, err = os.Getwd()
+		opts.workdir, err = os.Getwd()
 		if err != nil {
 			return err
 		}
 	} else {
-		workdir = args[0]
+		opts.workdir = args[0]
 	}
 
-	ctx := ctxt
+	popts := []app.ProjectOption{
+		app.WithProjectWorkdir(opts.workdir),
+	}
+
+	if len(opts.Kraftfile) > 0 {
+		popts = append(popts, app.WithProjectKraftfile(opts.Kraftfile))
+	} else {
+		popts = append(popts, app.WithProjectDefaultKraftfiles())
+	}
 
 	// Initialize at least the configuration options for a project
-	project, err := app.NewProjectFromOptions(
-		ctx,
-		app.WithProjectWorkdir(workdir),
-		app.WithProjectDefaultKraftfiles(),
-	)
-	if err != nil {
-		return err
+	opts.project, err = app.NewProjectFromOptions(ctx, popts...)
+	if err != nil && errors.Is(err, app.ErrNoKraftfile) {
+		return fmt.Errorf("cannot build project directory without a Kraftfile")
+	} else if err != nil {
+		return fmt.Errorf("could not initialize project directory: %w", err)
 	}
 
-	if !app.IsWorkdirInitialized(workdir) {
-		return fmt.Errorf("cannot build uninitialized project")
+	opts.Platform = platform.PlatformByName(opts.Platform).String()
+
+	selected := opts.project.Targets()
+	if len(selected) == 0 {
+		return fmt.Errorf("no targets to build")
 	}
+	if !opts.All {
+		selected = target.Filter(
+			selected,
+			opts.Architecture,
+			opts.Platform,
+			opts.Target,
+		)
 
-	norender := log.LoggerTypeFromString(config.G[config.KraftKit](ctx).Log.Type) != log.FANCY
-	nameWidth := -1
-
-	// Calculate the width of the longest process name so that we can align the
-	// two independent processtrees if we are using "render" mode (aka the fancy
-	// mode is enabled).
-	if !norender {
-		// The longest word is "configuring" (which is 11 characters long), plus
-		// additional space characters (2 characters), brackets (2 characters) the
-		// name of the project and the target/plat string (which is variable in
-		// length).
-		for _, targ := range project.Targets() {
-			if newLen := len(targ.Name()) + len(target.TargetPlatArchName(targ)) + 15; newLen > nameWidth {
-				nameWidth = newLen
+		if !config.G[config.KraftKit](ctx).NoPrompt {
+			res, err := target.Select(selected)
+			if err != nil {
+				return err
 			}
+			selected = []target.Target{res}
 		}
 	}
-
-	if !opts.NoPull {
-		if err := opts.pull(ctx, project, workdir, norender, nameWidth); err != nil {
-			return err
-		}
-	}
-
-	// Filter project targets by any provided CLI options
-	selected := FilterTargets(
-		project.Targets(),
-		opts.Architecture,
-		opts.Platform,
-		opts.Target,
-	)
 
 	if len(selected) == 0 {
 		return fmt.Errorf("no targets selected to build")
 	}
+
+	if opts.ForcePull || !opts.NoUpdate {
+		err := packmanager.G(ctx).Update(ctx)
+		if err != nil {
+			return err
+		}
+	}
+
+	if err := opts.pull(ctx); err != nil {
+		return err
+	}
+
 	var mopts []make.MakeOption
 	if opts.Jobs > 0 {
 		mopts = append(mopts, make.WithJobs(opts.Jobs))
 	} else {
-		mopts = append(mopts, make.WithMaxJobs(opts.Fast))
+		mopts = append(mopts, make.WithMaxJobs(!opts.NoFast && !config.G[config.KraftKit](ctx).NoParallel))
 	}
 
 	for _, targ := range selected {
 		// See: https://github.com/golang/go/wiki/CommonMistakes#using-reference-to-loop-iterator-variable
 		targ := targ
 		if !opts.NoConfigure {
-			project.Configure(
+			err := opts.project.Configure(
 				ctx,
 				targ, // Target-specific options
 				nil,  // No extra configuration options
@@ -296,32 +274,26 @@ func (opts *Build) BuildCmd(ctxt context.Context, args []string) error {
 					exec.WithStderr(log.G(ctx).WriterLevel(logrus.ErrorLevel)),
 				),
 			)
+			if err != nil {
+				return err
+			}
 		}
 
-		if !opts.NoPrepare {
-			project.Prepare(
-				ctx,
-				targ, // Target-specific options
-				append(
-					mopts,
-					make.WithExecOptions(
-						exec.WithStdout(log.G(ctx).Writer()),
-						exec.WithStderr(log.G(ctx).WriterLevel(logrus.ErrorLevel)),
-					),
-				)...,
-			)
-		}
-		project.Build(
+		err := opts.project.Build(
 			ctx,
 			targ, // Target-specific options
 			app.WithBuildMakeOptions(append(mopts,
 				make.WithExecOptions(
 					exec.WithStdout(log.G(ctx).Writer()),
-					exec.WithStderr(log.G(ctx).WriterLevel(logrus.ErrorLevel)),
+					exec.WithStderr(log.G(ctx).WriterLevel(logrus.WarnLevel)),
+					// exec.WithOSEnv(true),
 				),
 			)...),
 			app.WithBuildLogFile(opts.SaveBuildLog),
 		)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -329,135 +301,273 @@ func (opts *Build) BuildCmd(ctxt context.Context, args []string) error {
 
 type Pkg struct {
 	Architecture string
-	Args         string
+	Args         []string
 	Dbg          bool
 	Force        bool
 	Format       string
-	Initrd       string
 	Kernel       string
+	Kraftfile    string
 	Name         string
+	NoKConfig    bool
 	Output       string
 	Platform     string
+	Project      app.Application
+	Push         bool
+	Rootfs       string
+	Strategy     packmanager.MergeStrategy
 	Target       string
-	Volumes      []string
-	WithKConfig  bool
+	Workdir      string
+
+	packopts []packmanager.PackOption
+	pm       packmanager.PackageManager
 }
 
-func (opts *Pkg) PkgCmd(ctxt context.Context, args []string) error {
-	var err error
-	var workdir string
-
-	if len(args) == 0 {
-		workdir, err = os.Getwd()
-		if err != nil {
-			return err
+// buildRootfs generates a rootfs based on the provided path
+func (opts *Pkg) buildRootfs(ctx context.Context) error {
+	if opts.Rootfs == "" {
+		if opts.Project != nil && opts.Project.Rootfs() != "" {
+			opts.Rootfs = opts.Project.Rootfs()
+		} else {
+			return nil
 		}
-	} else {
-		workdir = args[0]
 	}
 
-	ctx := ctxt
-
-	// Interpret the project directory
-	project, err := app.NewProjectFromOptions(
-		ctx,
-		app.WithProjectWorkdir(workdir),
-		app.WithProjectDefaultKraftfiles(),
+	ramfs, err := initrd.New(ctx, opts.Rootfs,
+		initrd.WithOutput(filepath.Join(opts.Workdir, unikraft.BuildDir, initrd.DefaultInitramfsFileName)),
+		initrd.WithCacheDir(filepath.Join(opts.Workdir, unikraft.VendorDir, "rootfs-cache")),
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not prepare initramfs: %w", err)
 	}
 
-	// Generate a package for every matching requested target
-	for _, targ := range project.Targets() {
-		// See: https://github.com/golang/go/wiki/CommonMistakes#using-reference-to-loop-iterator-variable
-		targ := targ
-
-		switch true {
-		case
-			// If no arguments are supplied
-			len(opts.Target) == 0 &&
-				len(opts.Architecture) == 0 &&
-				len(opts.Platform) == 0,
-
-			// If the --target flag is supplied and the target name match
-			len(opts.Target) > 0 &&
-				targ.Name() == opts.Target,
-
-			// If only the --arch flag is supplied and the target's arch matches
-			len(opts.Architecture) > 0 &&
-				len(opts.Platform) == 0 &&
-				targ.Architecture().Name() == opts.Architecture,
-
-			// If only the --plat flag is supplied and the target's platform matches
-			len(opts.Platform) > 0 &&
-				len(opts.Architecture) == 0 &&
-				targ.Platform().Name() == opts.Platform,
-
-			// If both the --arch and --plat flag are supplied and match the target
-			len(opts.Platform) > 0 &&
-				len(opts.Architecture) > 0 &&
-				targ.Architecture().Name() == opts.Architecture &&
-				targ.Platform().Name() == opts.Platform:
-
-			var format pack.PackageFormat
-			name := "packaging " + targ.Name()
-			if opts.Format != "auto" {
-				format = pack.PackageFormat(opts.Format)
-			} else if targ.Format().String() != "" {
-				format = targ.Format()
-			}
-			if format.String() != "auto" {
-				name += " (" + format.String() + ")"
-			}
-
-			cmdShellArgs, err := shellwords.Parse(opts.Args)
-			if err != nil {
-				return err
-			}
-
-			pm := packmanager.G(ctx)
-
-			// Switch the package manager the desired format for this target
-			if format != "auto" {
-				pm, err = pm.From(format)
-				if err != nil {
-					return err
-				}
-			}
-
-			popts := []packmanager.PackOption{
-				packmanager.PackArgs(cmdShellArgs...),
-				packmanager.PackKConfig(opts.WithKConfig),
-				packmanager.PackOutput(opts.Output),
-				packmanager.PackInitrd(opts.Initrd),
-			}
-
-			if ukversion, ok := targ.KConfig().Get(unikraft.UK_FULLVERSION); ok {
-				popts = append(popts,
-					packmanager.PackWithKernelVersion(ukversion.Value),
-				)
-			}
-
-			if _, err := pm.Pack(ctx, targ, popts...); err != nil {
-				return err
-			}
-
-		default:
-			continue
-		}
+	opts.Rootfs, err = ramfs.Build(ctx)
+	if err != nil {
+		return err
 	}
 
 	return nil
 }
 
-type ProperClean struct{}
-
-func (opts *ProperClean) ProperCleanCmd(ctxt context.Context, args []string) error {
+func (opts *Pkg) initProject(ctx context.Context) error {
 	var err error
 
-	ctx := ctxt
+	popts := []app.ProjectOption{
+		app.WithProjectWorkdir(opts.Workdir),
+	}
+
+	if len(opts.Kraftfile) > 0 {
+		popts = append(popts, app.WithProjectKraftfile(opts.Kraftfile))
+	} else {
+		popts = append(popts, app.WithProjectDefaultKraftfiles())
+	}
+
+	// Interpret the project directory
+	opts.Project, err = app.NewProjectFromOptions(ctx, popts...)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (opts *Pkg) PackCmd(ctx context.Context, args ...string) ([]pack.Package, error) {
+	var err error
+
+	if opts == nil {
+		opts = &Pkg{}
+	}
+
+	opts.packopts = []packmanager.PackOption{}
+	opts.Strategy = packmanager.StrategyOverwrite
+
+	if len(args) == 0 {
+		opts.Workdir, err = os.Getwd()
+		if err != nil {
+			return nil, err
+		}
+	} else if len(opts.Workdir) == 0 {
+		opts.Workdir = args[0]
+	}
+
+	if opts.Project == nil {
+		if err := opts.initProject(ctx); err != nil {
+			return nil, err
+		}
+	}
+	if opts.Project.Unikraft(ctx) == nil {
+		return nil, fmt.Errorf("cannot package without unikraft core specification")
+	}
+
+	if opts.Name == "" {
+		return nil, fmt.Errorf("cannot package without setting --name")
+	}
+
+	if (len(opts.Architecture) > 0 || len(opts.Platform) > 0) && len(opts.Target) > 0 {
+		return nil, fmt.Errorf("the `--arch` and `--plat` options are not supported in addition to `--target`")
+	}
+
+	if config.G[config.KraftKit](ctx).NoPrompt && opts.Strategy == packmanager.StrategyPrompt {
+		return nil, fmt.Errorf("cannot mix --strategy=prompt when --no-prompt is enabled in settings")
+	}
+
+	opts.Platform = platform.PlatformByName(opts.Platform).String()
+
+	if len(opts.Format) > 0 {
+		// Switch the package manager the desired format for this target
+		opts.pm, err = packmanager.G(ctx).From(pack.PackageFormat(opts.Format))
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		opts.pm = packmanager.G(ctx)
+	}
+
+	exists, err := opts.pm.Catalog(ctx,
+		packmanager.WithName(opts.Name),
+	)
+	if err == nil && len(exists) > 0 {
+		if opts.Strategy == packmanager.StrategyPrompt {
+			strategy, err := selection.Select[packmanager.MergeStrategy](
+				fmt.Sprintf("package '%s' already exists: how would you like to proceed?", opts.Name),
+				packmanager.MergeStrategies()...,
+			)
+			if err != nil {
+				return nil, err
+			}
+
+			opts.Strategy = *strategy
+		}
+
+		switch opts.Strategy {
+		case packmanager.StrategyExit:
+			return nil, fmt.Errorf("package already exists and merge strategy set to exit on conflict")
+
+		// Set the merge strategy as an option that is then passed to the
+		// package manager.
+		default:
+			opts.packopts = append(opts.packopts,
+				packmanager.PackMergeStrategy(opts.Strategy),
+			)
+		}
+	} else {
+		opts.packopts = append(opts.packopts,
+			packmanager.PackMergeStrategy(packmanager.StrategyMerge),
+		)
+	}
+
+	if err := opts.buildRootfs(ctx); err != nil {
+		return nil, fmt.Errorf("could not build rootfs: %w", err)
+	}
+
+	selected := opts.Project.Targets()
+	if len(opts.Target) > 0 || len(opts.Architecture) > 0 || len(opts.Platform) > 0 {
+		selected = target.Filter(opts.Project.Targets(), opts.Architecture, opts.Platform, opts.Target)
+	}
+
+	if len(selected) > 1 && !config.G[config.KraftKit](ctx).NoPrompt {
+		selected, err = multiselect.MultiSelect[target.Target]("select what to package", opts.Project.Targets()...)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if len(selected) == 0 {
+		return nil, fmt.Errorf("nothing selected to package")
+	}
+
+	i := 0
+
+	var result []pack.Package
+	var havePackages bool
+
+	for _, targ := range selected {
+		// See: https://github.com/golang/go/wiki/CommonMistakes#using-reference-to-loop-iterator-variable
+		targ := targ
+		baseopts := opts.packopts
+
+		// If no arguments have been specified, use the ones which are default and
+		// that have been included in the package.
+		if len(opts.Args) == 0 {
+			opts.Args = targ.Command()
+		}
+
+		cmdShellArgs, err := shellwords.Parse(strings.Join(opts.Args, " "))
+		if err != nil {
+			return nil, err
+		}
+
+		// When i > 0, we have already applied the merge strategy.  Now, for all
+		// targets, we actually do wish to merge these because they are part of
+		// the same execution lifecycle.
+		if i > 0 {
+			baseopts = []packmanager.PackOption{
+				packmanager.PackMergeStrategy(packmanager.StrategyMerge),
+			}
+		}
+
+		havePackages = true
+
+		popts := append(baseopts,
+			packmanager.PackArgs(cmdShellArgs...),
+			packmanager.PackInitrd(opts.Rootfs),
+			packmanager.PackKConfig(!opts.NoKConfig),
+			packmanager.PackName(opts.Name),
+			packmanager.PackOutput(opts.Output),
+		)
+
+		if ukversion, ok := targ.KConfig().Get(unikraft.UK_FULLVERSION); ok {
+			popts = append(popts,
+				packmanager.PackWithKernelVersion(ukversion.Value),
+			)
+		}
+
+		more, err := opts.pm.Pack(ctx, targ, popts...)
+		if err != nil {
+			return nil, err
+		}
+
+		result = append(result, more...)
+
+		i++
+	}
+
+	if !havePackages {
+		switch true {
+		case len(opts.Target) > 0:
+			return nil, fmt.Errorf("no matching targets found for: %s", opts.Target)
+		case len(opts.Architecture) > 0 && len(opts.Platform) == 0:
+			return nil, fmt.Errorf("no matching targets found for architecture: %s", opts.Architecture)
+		case len(opts.Architecture) == 0 && len(opts.Platform) > 0:
+			return nil, fmt.Errorf("no matching targets found for platform: %s", opts.Platform)
+		}
+	}
+
+	if opts.Push {
+		for _, p := range result {
+			err := p.Push(ctx)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return result, nil
+}
+
+type Clean struct {
+	Architecture string
+	Kraftfile    string
+	Platform     string
+	Target       string
+	Proper       bool
+}
+
+func (opts *Clean) CleanCmd(ctx context.Context, args []string) error {
+	var err error
 	workdir := ""
+
+	// Delete everything for now for backwards compatibility
+	opts.Proper = true
 
 	if len(args) == 0 {
 		workdir, err = os.Getwd()
@@ -468,32 +578,57 @@ func (opts *ProperClean) ProperCleanCmd(ctxt context.Context, args []string) err
 		workdir = args[0]
 	}
 
-	// Initialize at least the configuration options for a project
-	project, err := app.NewProjectFromOptions(
-		ctx,
+	popts := []app.ProjectOption{
 		app.WithProjectWorkdir(workdir),
-		app.WithProjectDefaultKraftfiles(),
-	)
+	}
+
+	if len(opts.Kraftfile) > 0 {
+		popts = append(popts, app.WithProjectKraftfile(opts.Kraftfile))
+	} else {
+		popts = append(popts, app.WithProjectDefaultKraftfiles())
+	}
+
+	// Initialize at least the configuration options for a project
+	project, err := app.NewProjectFromOptions(ctx, popts...)
 	if err != nil {
 		return err
 	}
 
-	return project.Properclean(ctx, nil)
+	// Filter project targets by any provided CLI options
+	targets := target.Filter(
+		project.Targets(),
+		opts.Architecture,
+		opts.Platform,
+		opts.Target,
+	)
+
+	t, err := target.Select(targets)
+	if err != nil {
+		return err
+	}
+
+	if opts.Proper {
+		return project.Properclean(ctx, t)
+	}
+
+	return project.Clean(ctx, t)
 }
 
 type Pull struct {
-	AllVersions  bool
+	All          bool
 	Architecture string
-	Manager      string
 	ForceCache   bool
+	Kraftfile    string
+	Manager      string
 	NoChecksum   bool
 	NoDeps       bool
 	Platform     string
 	WithDeps     bool
 	Workdir      string
+	KConfig      []string
 }
 
-func (opts *Pull) PullCmd(ctxt context.Context, args []string) error {
+func (opts *Pull) PullCmd(ctx context.Context, args []string) error {
 	var err error
 	var project app.Application
 
@@ -509,7 +644,6 @@ func (opts *Pull) PullCmd(ctxt context.Context, args []string) error {
 		args = []string{workdir}
 	}
 
-	ctx := ctxt
 	pm := packmanager.G(ctx)
 
 	// Force a particular package manager
@@ -525,16 +659,43 @@ func (opts *Pull) PullCmd(ctxt context.Context, args []string) error {
 		query []packmanager.QueryOption
 	}
 
+	// If `--all` is not set and either `--plat` or `--arch` are not set,
+	// use the host platform and architecture, as the user is likely trying
+	// to pull for their system by using "sensible defaults".
+	if !opts.All {
+		if opts.Architecture == "" {
+			opts.Architecture, err = arch.HostArchitecture()
+			if err != nil {
+				return fmt.Errorf("could not determine host architecture: %w", err)
+			}
+		}
+
+		if opts.Platform == "" {
+			platform, _, err := platform.Detect(ctx)
+			if err != nil {
+				return fmt.Errorf("could not detect host platform: %w", err)
+			}
+			opts.Platform = platform.String()
+		}
+	}
+
 	var queries []pmQuery
 
 	// Are we pulling an application directory?  If so, interpret the application
 	// so we can get a list of components
 	if f, err := os.Stat(args[0]); err == nil && f.IsDir() {
 		workdir = args[0]
+		popts := []app.ProjectOption{}
+
+		if len(opts.Kraftfile) > 0 {
+			popts = append(popts, app.WithProjectKraftfile(opts.Kraftfile))
+		} else {
+			popts = append(popts, app.WithProjectDefaultKraftfiles())
+		}
+
 		project, err := app.NewProjectFromOptions(
 			ctx,
-			app.WithProjectWorkdir(workdir),
-			app.WithProjectDefaultKraftfiles(),
+			append(popts, app.WithProjectWorkdir(workdir))...,
 		)
 		if err != nil {
 			return err
@@ -548,7 +709,9 @@ func (opts *Pull) PullCmd(ctxt context.Context, args []string) error {
 				packmanager.WithName(project.Template().Name()),
 				packmanager.WithTypes(unikraft.ComponentTypeApp),
 				packmanager.WithVersion(project.Template().Version()),
-				packmanager.WithCache(!opts.ForceCache),
+				packmanager.WithUpdate(opts.ForceCache),
+				packmanager.WithPlatform(opts.Platform),
+				packmanager.WithArchitecture(opts.Architecture),
 			)
 			if err != nil {
 				return err
@@ -560,12 +723,15 @@ func (opts *Pull) PullCmd(ctxt context.Context, args []string) error {
 				return fmt.Errorf("too many options for %s", unikraft.TypeNameVersion(project.Template()))
 			}
 
-			packages[0].Pull(
+			err := packages[0].Pull(
 				ctx,
 				pack.WithPullWorkdir(workdir),
 				// pack.WithPullChecksum(!opts.NoChecksum),
 				// pack.WithPullCache(!opts.NoCache),
 			)
+			if err != nil {
+				return err
+			}
 		}
 
 		templateWorkdir, err := unikraft.PlaceComponent(workdir, project.Template().Type(), project.Template().Name())
@@ -575,8 +741,7 @@ func (opts *Pull) PullCmd(ctxt context.Context, args []string) error {
 
 		templateProject, err := app.NewProjectFromOptions(
 			ctx,
-			app.WithProjectWorkdir(templateWorkdir),
-			app.WithProjectDefaultKraftfiles(),
+			append(popts, app.WithProjectWorkdir(templateWorkdir))...,
 		)
 		if err != nil {
 			return err
@@ -600,7 +765,9 @@ func (opts *Pull) PullCmd(ctxt context.Context, args []string) error {
 					packmanager.WithVersion(c.Version()),
 					packmanager.WithSource(c.Source()),
 					packmanager.WithTypes(c.Type()),
-					packmanager.WithCache(opts.ForceCache),
+					packmanager.WithUpdate(!opts.ForceCache),
+					packmanager.WithPlatform(opts.Platform),
+					packmanager.WithArchitecture(opts.Architecture),
 				},
 			})
 		}
@@ -608,7 +775,9 @@ func (opts *Pull) PullCmd(ctxt context.Context, args []string) error {
 		// Is this a list (space delimetered) of packages to pull?
 	} else if len(args) > 0 {
 		for _, arg := range args {
-			pm, compatible, err := pm.IsCompatible(ctx, arg)
+			pm, compatible, err := pm.IsCompatible(ctx, arg,
+				packmanager.WithUpdate(!opts.ForceCache),
+			)
 			if err != nil || !compatible {
 				continue
 			}
@@ -616,8 +785,11 @@ func (opts *Pull) PullCmd(ctxt context.Context, args []string) error {
 			queries = append(queries, pmQuery{
 				pm: pm,
 				query: []packmanager.QueryOption{
-					packmanager.WithCache(opts.ForceCache),
+					packmanager.WithUpdate(!opts.ForceCache),
 					packmanager.WithName(arg),
+					packmanager.WithArchitecture(opts.Architecture),
+					packmanager.WithPlatform(opts.Platform),
+					packmanager.WithKConfig(opts.KConfig),
 				},
 			})
 		}
@@ -641,12 +813,15 @@ func (opts *Pull) PullCmd(ctxt context.Context, args []string) error {
 
 		for _, p := range next {
 			p := p
-			return p.Pull(
+			err := p.Pull(
 				ctx,
 				pack.WithPullWorkdir(workdir),
 				pack.WithPullChecksum(!opts.NoChecksum),
 				pack.WithPullCache(opts.ForceCache),
 			)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -657,17 +832,27 @@ func (opts *Pull) PullCmd(ctxt context.Context, args []string) error {
 	return nil
 }
 
-type Source struct{}
+type Source struct {
+	Force bool
+}
 
-func (opts *Source) SourceCmd(ctxt context.Context, args []string) error {
-	ctx := ctxt
-
+func (opts *Source) SourceCmd(ctx context.Context, args []string) error {
 	for _, source := range args {
-		_, compatible, err := packmanager.G(ctx).IsCompatible(ctx, source)
-		if err != nil {
-			return err
-		} else if !compatible {
-			return errors.New("incompatible package manager")
+		if !opts.Force {
+			_, compatible, err := packmanager.G(ctx).IsCompatible(ctx,
+				source,
+				packmanager.WithUpdate(true),
+			)
+			if err != nil {
+				return err
+			} else if !compatible {
+				return errors.New("incompatible package manager")
+			}
+
+			err = packmanager.G(ctx).AddSource(ctx, source)
+			if err != nil {
+				return err
+			}
 		}
 
 		for _, manifest := range config.G[config.KraftKit](ctx).Unikraft.Manifests {
@@ -692,22 +877,22 @@ func (opts *Source) SourceCmd(ctxt context.Context, args []string) error {
 
 type Unsource struct{}
 
-func (opts *Unsource) UnsourceCmd(ctxt context.Context, args []string) error {
-	ctx := ctxt
+func (opts *Unsource) UnsourceCmd(ctx context.Context, args []string) error {
 	for _, source := range args {
-		_, compatible, err := packmanager.G(ctx).IsCompatible(ctx, source)
-		if err != nil {
-			return err
-		} else if !compatible {
-			return errors.New("incompatible package manager")
-		}
-
 		manifests := []string{}
 
+		var manifestRemoved bool
 		for _, manifest := range config.G[config.KraftKit](ctx).Unikraft.Manifests {
 			if source != manifest {
 				manifests = append(manifests, manifest)
+			} else {
+				manifestRemoved = true
 			}
+		}
+
+		if !manifestRemoved {
+			log.G(ctx).Warnf("manifest not found: %s", source)
+			return nil
 		}
 
 		config.G[config.KraftKit](ctx).Unikraft.Manifests = manifests
@@ -724,36 +909,46 @@ type Update struct {
 	Manager string
 }
 
-func (opts *Update) UpdateCmd(ctxt context.Context, args []string) error {
+func (opts *Update) UpdateCmd(ctx context.Context, args []string) error {
 	var err error
 
-	ctx := ctxt
 	pm := packmanager.G(ctx)
 
 	// Force a particular package manager
-	if len(opts.Manager) > 0 && opts.Manager != "auto" {
+	if len(opts.Manager) > 0 && opts.Manager != "all" {
 		pm, err = pm.From(pack.PackageFormat(opts.Manager))
 		if err != nil {
 			return err
 		}
-	}
 
-	err = pm.Update(ctx)
-	if err != nil {
-		return err
+		err := pm.Update(ctx)
+		if err != nil {
+			return err
+		}
+	} else {
+		umbrella, err := packmanager.PackageManagers()
+		if err != nil {
+			return err
+		}
+
+		for _, pm := range umbrella {
+			err := pm.Update(ctx)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil
 }
 
 type Set struct {
-	Workdir string
+	Kraftfile string
+	Workdir   string
 }
 
-func (opts *Set) SetCmd(ctxt context.Context, args []string) error {
+func (opts *Set) SetCmd(ctx context.Context, args []string) error {
 	var err error
-
-	ctx := ctxt
 
 	workdir := ""
 	confOpts := []string{}
@@ -791,92 +986,22 @@ func (opts *Set) SetCmd(ctxt context.Context, args []string) error {
 		return fmt.Errorf("dotconfig file does not exist: %s", dotconfig)
 	}
 
-	// Initialize at least the configuration options for a project
-	project, err := app.NewProjectFromOptions(
-		ctx,
+	popts := []app.ProjectOption{
 		app.WithProjectWorkdir(workdir),
-		app.WithProjectDefaultKraftfiles(),
 		app.WithProjectConfig(confOpts),
-	)
+	}
+
+	if len(opts.Kraftfile) > 0 {
+		popts = append(popts, app.WithProjectKraftfile(opts.Kraftfile))
+	} else {
+		popts = append(popts, app.WithProjectDefaultKraftfiles())
+	}
+
+	// Initialize at least the configuration options for a project
+	project, err := app.NewProjectFromOptions(ctx, popts...)
 	if err != nil {
 		return err
 	}
 
 	return project.Set(ctx, nil)
-}
-
-type Push struct {
-	Format string
-}
-
-func (opts *Push) Run(ctxt context.Context, args []string) error {
-	var err error
-	var workdir string
-
-	if len(args) == 0 {
-		workdir, err = os.Getwd()
-		if err != nil {
-			return err
-		}
-	} else if f, err := os.Stat(args[0]); err == nil && f.IsDir() {
-		workdir = args[0]
-	} else {
-		workdir = ""
-	}
-
-	ctx := ctxt
-	ref := ""
-	if workdir != "" {
-		// Read the kraft yaml specification and get the target name
-		project, err := app.NewProjectFromOptions(
-			ctx,
-			app.WithProjectWorkdir(workdir),
-			app.WithProjectDefaultKraftfiles(),
-		)
-		if err != nil {
-			return err
-		}
-
-		// Get the target name
-		ref = project.Name()
-	} else {
-		// Argument is a reference name
-		ref = args[0]
-	}
-
-	var pmananger packmanager.PackageManager
-	if opts.Format != "auto" {
-		pmananger = packmanager.PackageManagers()[pack.PackageFormat(opts.Format)]
-		if pmananger == nil {
-			return errors.New("invalid package format specified")
-		}
-	} else {
-		pmananger = packmanager.G(ctx)
-	}
-
-	if pm, compatible, err := pmananger.IsCompatible(ctx, ref); err == nil && compatible {
-		packages, err := pm.Catalog(ctx,
-			packmanager.WithCache(true),
-			packmanager.WithName(ref),
-		)
-		if err != nil {
-			return err
-		}
-
-		if len(packages) == 0 {
-			return errors.New("no packages found")
-		} else if len(packages) > 1 {
-			return errors.New("multiple packages found")
-		}
-
-		// Call push if it exists
-		// TODO push if it doesn't exist too
-		if err := packages[0].Push(ctx); err != nil {
-			return err
-		}
-	} else {
-		return err
-	}
-
-	return nil
 }

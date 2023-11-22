@@ -18,11 +18,14 @@ type FlatConfig struct {
 	PackerOnError       *string           `mapstructure:"packer_on_error" cty:"packer_on_error" hcl:"packer_on_error"`
 	PackerUserVars      map[string]string `mapstructure:"packer_user_variables" cty:"packer_user_variables" hcl:"packer_user_variables"`
 	PackerSensitiveVars []string          `mapstructure:"packer_sensitive_variables" cty:"packer_sensitive_variables" hcl:"packer_sensitive_variables"`
-	Type                *string           `mapstructure:"type" cty:"type" hcl:"type"`
-	FileSource          *string           `mapstructure:"source" cty:"source" hcl:"source"`
-	FileDestination     *string           `mapstructure:"destination" cty:"destination" hcl:"destination"`
-	Architecture        *string           `mapstructure:"architecture" cty:"architecture" hcl:"architecture"`
-	Platform            *string           `mapstructure:"platform" cty:"platform" hcl:"platform"`
+	FileSource          *string           `mapstructure:"source" required:"true" cty:"source" hcl:"source"`
+	FileDestination     *string           `mapstructure:"destination" required:"true" cty:"destination" hcl:"destination"`
+	Architecture        *string           `mapstructure:"architecture" required:"true" cty:"architecture" hcl:"architecture"`
+	Platform            *string           `mapstructure:"platform" required:"true" cty:"platform" hcl:"platform"`
+	Target              *string           `mapstructure:"target" cty:"target" hcl:"target"`
+	Push                *bool             `mapstructure:"push" cty:"push" hcl:"push"`
+	Rootfs              *string           `mapstructure:"rootfs" cty:"rootfs" hcl:"rootfs"`
+	LogLevel            *string           `mapstructure:"log_level" cty:"log_level" hcl:"log_level"`
 }
 
 // FlatMapstructure returns a new FlatConfig.
@@ -45,11 +48,14 @@ func (*FlatConfig) HCL2Spec() map[string]hcldec.Spec {
 		"packer_on_error":            &hcldec.AttrSpec{Name: "packer_on_error", Type: cty.String, Required: false},
 		"packer_user_variables":      &hcldec.AttrSpec{Name: "packer_user_variables", Type: cty.Map(cty.String), Required: false},
 		"packer_sensitive_variables": &hcldec.AttrSpec{Name: "packer_sensitive_variables", Type: cty.List(cty.String), Required: false},
-		"type":                       &hcldec.AttrSpec{Name: "type", Type: cty.String, Required: false},
 		"source":                     &hcldec.AttrSpec{Name: "source", Type: cty.String, Required: false},
 		"destination":                &hcldec.AttrSpec{Name: "destination", Type: cty.String, Required: false},
 		"architecture":               &hcldec.AttrSpec{Name: "architecture", Type: cty.String, Required: false},
 		"platform":                   &hcldec.AttrSpec{Name: "platform", Type: cty.String, Required: false},
+		"target":                     &hcldec.AttrSpec{Name: "target", Type: cty.String, Required: false},
+		"push":                       &hcldec.AttrSpec{Name: "push", Type: cty.Bool, Required: false},
+		"rootfs":                     &hcldec.AttrSpec{Name: "rootfs", Type: cty.String, Required: false},
+		"log_level":                  &hcldec.AttrSpec{Name: "log_level", Type: cty.String, Required: false},
 	}
 	return s
 }

@@ -23,11 +23,6 @@ type Config struct {
 	Force bool `mapstructure:"force"`
 	// The name of the image to build.
 	Target string `mapstructure:"target"`
-	// Max number of jobs to run in parallel.
-	Jobs int `mapstructure:"jobs"`
-	// Build jobs in parallel.
-	Fast bool `mapstructure:"fast"`
-
 	// The path to the build directory. This is required.
 	Path string `mapstructure:"build_path" required:"true"`
 	// The path to the pull source.
@@ -40,8 +35,8 @@ type Config struct {
 	SourcesNoDefault bool `mapstructure:"sources_no_default"`
 	// Set of options to set.
 	Options string `mapstructure:"options"`
-	// Keep the specification of the build.
-	KeepConfig bool `mapstructure:"keep_config"`
+	// Log level to use.
+	LogLevel string `mapstructure:"log_level"`
 
 	ctx interpolate.Context
 }
@@ -71,10 +66,6 @@ func (c *Config) Prepare(raws ...interface{}) ([]string, error) {
 
 	if c.Platform == "" {
 		errs = packer.MultiErrorAppend(errs, fmt.Errorf("platform must be specified"))
-	}
-
-	if c.Jobs < 1 {
-		errs = packer.MultiErrorAppend(errs, fmt.Errorf("jobs must be greater than 0"))
 	}
 
 	if c.Path == "" {
