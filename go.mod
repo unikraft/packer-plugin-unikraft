@@ -3,13 +3,13 @@ module packer-plugin-unikraft
 go 1.21
 
 require (
-	github.com/hashicorp/hcl/v2 v2.14.1
+	github.com/hashicorp/hcl/v2 v2.19.1
 	github.com/hashicorp/packer-plugin-sdk v0.4.0
 	github.com/mattn/go-shellwords v1.0.12
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/rancher/wrangler v1.1.1
 	github.com/sirupsen/logrus v1.9.3
-	github.com/zclconf/go-cty v1.10.0
+	github.com/zclconf/go-cty v1.13.0
 	kraftkit.sh v0.7.0
 )
 
@@ -34,6 +34,7 @@ require (
 	github.com/acorn-io/baaah v0.0.0-20230522221318-afcc93619e30 // indirect
 	github.com/agext/levenshtein v1.2.3 // indirect
 	github.com/apparentlymart/go-textseg/v13 v13.0.0 // indirect
+	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect
 	github.com/armon/go-metrics v0.3.9 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
