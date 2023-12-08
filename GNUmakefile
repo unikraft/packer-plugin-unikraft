@@ -37,3 +37,7 @@ testacc: dev
 
 generate: install-packer-sdc
 	@go generate ./...
+	@rm -rf .docs
+	@packer-sdc renderdocs -src docs -partials docs-partials/ -dst .docs/
+	@./.web-docs/scripts/compile-to-webdocs.sh "." ".docs" ".web-docs" "unikraft"
+	@rm -r ".docs"
