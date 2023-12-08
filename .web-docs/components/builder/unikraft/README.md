@@ -1,0 +1,43 @@
+The builder uses packer version 1.7.0 and up to create pipelines.
+After running the Unikraft builder the end result is one or multiple Unikraft images.
+They are situated in a build directory which is created by the Unikraft build system.
+
+The builder wraps around the `kraftkit` build system which relies on `kraft.yaml` files to define builds.
+Moreover, `kraft` itself wraps over the `kconfig` build system of Unikraft.
+All three together build the images and offer final binaries.
+
+**Required**
+
+- `architecture` (string) - The architecture to build the image for. Example: `x86_64`, `arm64`, `arm`.
+- `platform` (string) - The platform to build the image for. Example: `kvm`, `xen`, `linuxu`.
+- `build_path` (string) - The path to the build directory. This is the directory where the `kraft.yaml` file is located.
+
+**Optional**
+
+- `target` (string) - The name of the image to build.
+- `pull_source` (string) - The name of the application to pull.
+- `workdir` (string) - The path to pull the source to. It's a parent directory of `build_path`.
+- `sources_no_default` (boolean) - Do not pull the default manifest sources. Required when working with custom repositories.
+- `sources` (string list) - The links of the sources to pull.
+- `options` (string) - The options to pass to the build system. Options are separated by spaces and of the format `KEY=value`. Currently disabled.
+- `log_level` (string) - The log level to use. Can be `debug`, `info`, `warn`, `error`, `fatal`, `panic`. Default: `info`.
+
+### Example Usage
+
+
+```hcl
+ source "unikraft-builder" "example" {
+    architecture = "x86_64"
+    platform = "qemu"
+    build_path = "/tmp/test/.unikraft/apps/helloworld"
+    workdir = "/tmp/test"
+    pull_source = "helloworld"
+    sources_no_default = false
+    sources = [ "https://github.com/unikraft/app-helloworld" ]
+    log_level = "info"
+ }
+
+ build {
+   sources = ["source.unikraft-builder.example"]
+ }
+```
