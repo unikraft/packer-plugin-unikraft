@@ -1,27 +1,20 @@
----
-description: >
-  The Packer Unikraft post-processor takes an artifact from the Unikraft builder and packages it into different formats.
-  This allows you to export the resulting binary in different formats (e.g. OCI).
-page_title: Unikraft - Post-Processors
-nav_title: Unikraft
----
-
-# Unikraft Post-Processor
-
 Type: `unikraft`
 
 The Packer Unikraft post-processor takes an artifact from the [Unikraft builder](/packer/plugins/builders/unikraft) and packages it into different formats.
 This allows you to export the resulting binary in different formats (e.g. OCI).
 
-### Required
+**Required**
 
 - `source` (string) - The source directory to create the archive from. The source directory must contain a `kraft.yaml` file.
 - `destination` (string) - The resulting package file. The `destination` must be a valid OCI image name.
-- `architecture` (string) - The architecture of the packaged image. The `architecture` is required.
-- `platform` (string) - The platform of the packaged image. The `platform` is required.
-- `target` (string) - The target of the packaged image. The `target` is optional.
-- `push` (bool) - If to push the resulting image to the registry. `push` is optional.
-- `rootfs` (string) - The path to the rootfs of the packaged image. The `rootfs` is optional.
+- `architecture` (string) - The architecture of the packaged image.
+- `platform` (string) - The platform of the packaged image.
+
+**Optional**
+
+- `target` (string) - The target of the packaged image.
+- `push` (bool) - If to push the resulting image to the registry.
+- `rootfs` (string) - The path to the rootfs of the packaged image.
 - `log_level` (string) - The log level of the packaged image. Can be `debug`, `info`, `warn`, `error`, `fatal`, `panic`. Default: `info`.
 
 ### Example Usage

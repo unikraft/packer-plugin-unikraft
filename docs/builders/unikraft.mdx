@@ -1,12 +1,3 @@
----
-description: >
-  The unikraft builder uses kraftkit to create runnable unikraft unikernel images.
-page_title: Unikraft - Builder
-nav_title: Unikraft
----
-
-# Unikraft
-
 Type: `unikraft`
 
 The Unikraft builder uses kraftkit to create runnable Unikraft unikernel images.
@@ -18,13 +9,13 @@ The builder wraps around the `kraftkit` build system which relies on `kraft.yaml
 Moreover, `kraft` itself wraps over the `kconfig` build system of Unikraft.
 All three together build the images and offer final binaries.
 
-### Required
+**Required**
 
 - `architecture` (string) - The architecture to build the image for. Example: `x86_64`, `arm64`, `arm`.
 - `platform` (string) - The platform to build the image for. Example: `kvm`, `xen`, `linuxu`.
 - `build_path` (string) - The path to the build directory. This is the directory where the `kraft.yaml` file is located.
 
-### Optional
+**Optional**
 
 - `target` (string) - The name of the image to build.
 - `pull_source` (string) - The name of the application to pull.
