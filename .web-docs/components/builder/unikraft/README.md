@@ -1,6 +1,3 @@
-Type: `unikraft`
-
-The Unikraft builder uses kraftkit to create runnable Unikraft unikernel images.
 The builder uses packer version 1.7.0 and up to create pipelines.
 After running the Unikraft builder the end result is one or multiple Unikraft images.
 They are situated in a build directory which is created by the Unikraft build system.
@@ -44,4 +41,3 @@ All three together build the images and offer final binaries.
    sources = ["source.unikraft-builder.example"]
  }
 ```
-

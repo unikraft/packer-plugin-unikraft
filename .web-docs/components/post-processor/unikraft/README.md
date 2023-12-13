@@ -1,6 +1,3 @@
-Type: `unikraft`
-
-The Packer Unikraft post-processor takes an artifact from the [Unikraft builder](/packer/plugins/builders/unikraft) and packages it into different formats.
 This allows you to export the resulting binary in different formats (e.g. OCI).
 
 **Required**
