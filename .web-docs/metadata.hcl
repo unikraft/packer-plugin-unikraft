@@ -7,7 +7,6 @@ integration {
   name = "Unikraft"
   description = "The Unikraft plugin uses kraftkit to create and package runnable Unikraft unikernel images."
   identifier = "packer/unikraft/unikraft"
-  flags = [ "community" ]
   license {
     type = "MPL-2.0"
     url = "https://github.com/unikraft/packer-plugin-unikraft/blob/main/LICENSE"
