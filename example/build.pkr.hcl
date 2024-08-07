@@ -1,7 +1,7 @@
 packer {
   required_plugins {
     unikraft = {
-      version = ">=v0.2.0"
+      version = ">=v0.2.1"
       source  = "github.com/unikraft/unikraft"
     }
   }
@@ -61,7 +61,7 @@ build {
     rootfs = "/tmp/test/.unikraft/apps/nginx/rootfs"
 
     // The resulting OCI archive
-    destination = "my-registry.io/nginx:latest"
+    destination = "my-registry.io/unikernel-nginx:latest"
 
     // If to push the resulting OCI archive
     push = false

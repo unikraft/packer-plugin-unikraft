@@ -19,7 +19,7 @@ func (d *KraftDriver) Build(path, architecture, platform, target string) error {
 	c := Build{
 		Architecture: architecture,
 		Platform:     platform,
-		Target:       target,
+		TargetName:   target,
 		NoCache:      true,
 		NoUpdate:     true,
 	}
