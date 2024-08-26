@@ -19,7 +19,7 @@ Then, run [`packer init`](https://www.packer.io/docs/commands/init).
 packer {
   required_plugins {
     unikraft = {
-      version = ">= 0.2.0"
+      version = ">= 0.2.1"
       source  = "github.com/unikraft/unikraft"
     }
   }

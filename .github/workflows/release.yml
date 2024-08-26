@@ -13,7 +13,7 @@ name: release
 on:
   workflow_dispatch:
   push:
-    tags: 'v*'
+    tags: ['v*']
 
 permissions:
   contents: write
@@ -25,7 +25,7 @@ jobs:
     container: kraftkit.sh/myself-full:latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
@@ -41,17 +41,17 @@ jobs:
 
       - name: Describe plugin
         id: plugin_describe
-        run: echo "::set-output name=api_version::$(go run . describe | jq -r '.api_version')"
+        run: echo "::set-output name=api_version::$(go run -tags 'containers_image_storage_stub,containers_image_openpgp' . describe | jq -r '.api_version')"
 
       - name: Run GoReleaser
         run: |
           goreleaser build \
             --config .goreleaser.yml \
-            --skip-validate
+            --skip=validate
           goreleaser release \
             --config .goreleaser.yml \
-            --clean --skip-validate \
-            --skip-sign
+            --clean --skip=validate \
+            --skip=sign
         env:
           API_VERSION: ${{ steps.plugin_describe.outputs.api_version }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

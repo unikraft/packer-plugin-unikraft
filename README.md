@@ -19,7 +19,7 @@ Then, run [`packer init`](https://www.packer.io/docs/commands/init).
 packer {
   required_plugins {
     unikraft = {
-      version = ">= 0.2.0"
+      version = ">= 0.2.1"
       source  = "github.com/unikraft/unikraft"
     }
   }
@@ -39,7 +39,7 @@ To install the plugin, please follow the Packer documentation on
 ### From Sources
 
 If you prefer to build the plugin from sources, clone the GitHub repository
-locally and run the command `go build` from the root
+locally and run the command `go build -tags "containers_image_storage_stub,containers_image_openpgp"` from the root
 directory. Upon successful compilation, a `packer-plugin-unikraft` plugin
 binary file can be found in the root directory.
 To install the compiled plugin, please follow the official Packer documentation
