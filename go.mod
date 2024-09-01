@@ -12,7 +12,7 @@ require (
 	github.com/rancher/wrangler v1.1.2
 	github.com/sirupsen/logrus v1.9.3
 	github.com/zclconf/go-cty v1.13.3
-	kraftkit.sh v0.9.1-39-gbac5ee58
+	kraftkit.sh v0.9.2
 )
 
 require (
